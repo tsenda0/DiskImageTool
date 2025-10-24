@@ -1,0 +1,219 @@
+
+namespace DiskImageTool
+{
+    partial class FormDiskImageTool
+    {
+        /// <summary>
+        ///  Required designer variable.
+        /// </summary>
+        private System.ComponentModel.IContainer components = null;
+
+        /// <summary>
+        ///  Clean up any resources being used.
+        /// </summary>
+        /// <param name="disposing">true if managed resources should be disposed; otherwise, false.</param>
+        protected override void Dispose(bool disposing)
+        {
+            if (disposing && (components != null))
+            {
+                components.Dispose();
+            }
+            base.Dispose(disposing);
+        }
+
+        #region Windows Form Designer generated code
+
+        /// <summary>
+        ///  Required method for Designer support - do not modify
+        ///  the contents of this method with the code editor.
+        /// </summary>
+        private void InitializeComponent()
+        {
+            buttonExtractAll = new Button();
+            buttonSelectFile = new Button();
+            labelFileName = new Label();
+            panelTop = new Panel();
+            panelFileName = new Panel();
+            panelRight = new Panel();
+            buttonExtract = new Button();
+            openFileDialog1 = new OpenFileDialog();
+            labelStatus = new Label();
+            panelFileList = new Panel();
+            listViewFiles = new ListView();
+            columnFileName = new ColumnHeader();
+            columnSize = new ColumnHeader();
+            columnDate = new ColumnHeader();
+            folderBrowserDialog1 = new FolderBrowserDialog();
+            panelTop.SuspendLayout();
+            panelFileName.SuspendLayout();
+            panelRight.SuspendLayout();
+            panelFileList.SuspendLayout();
+            SuspendLayout();
+            // 
+            // buttonExtractAll
+            // 
+            buttonExtractAll.Location = new Point(4, 8);
+            buttonExtractAll.Margin = new Padding(4, 5, 4, 5);
+            buttonExtractAll.Name = "buttonExtractAll";
+            buttonExtractAll.Size = new Size(104, 52);
+            buttonExtractAll.TabIndex = 0;
+            buttonExtractAll.Text = "全抽出";
+            buttonExtractAll.UseVisualStyleBackColor = true;
+            buttonExtractAll.Click += ExtractAll_Click;
+            // 
+            // buttonSelectFile
+            // 
+            buttonSelectFile.Dock = DockStyle.Right;
+            buttonSelectFile.Location = new Point(400, 4);
+            buttonSelectFile.Name = "buttonSelectFile";
+            buttonSelectFile.Size = new Size(100, 48);
+            buttonSelectFile.TabIndex = 1;
+            buttonSelectFile.Text = "イメージファイル\r\n選択...";
+            buttonSelectFile.UseVisualStyleBackColor = true;
+            buttonSelectFile.Click += OpenImageFile_Click;
+            // 
+            // labelFileName
+            // 
+            labelFileName.BorderStyle = BorderStyle.FixedSingle;
+            labelFileName.Dock = DockStyle.Fill;
+            labelFileName.Location = new Point(4, 4);
+            labelFileName.Name = "labelFileName";
+            labelFileName.Size = new Size(388, 40);
+            labelFileName.TabIndex = 0;
+            labelFileName.Text = "ファイルを選択してください";
+            labelFileName.TextAlign = ContentAlignment.MiddleLeft;
+            // 
+            // panelTop
+            // 
+            panelTop.Controls.Add(panelFileName);
+            panelTop.Controls.Add(buttonSelectFile);
+            panelTop.Dock = DockStyle.Top;
+            panelTop.Location = new Point(0, 0);
+            panelTop.Name = "panelTop";
+            panelTop.Padding = new Padding(4);
+            panelTop.Size = new Size(504, 56);
+            panelTop.TabIndex = 0;
+            // 
+            // panelFileName
+            // 
+            panelFileName.Controls.Add(labelFileName);
+            panelFileName.Dock = DockStyle.Fill;
+            panelFileName.Location = new Point(4, 4);
+            panelFileName.Name = "panelFileName";
+            panelFileName.Padding = new Padding(4);
+            panelFileName.Size = new Size(396, 48);
+            panelFileName.TabIndex = 0;
+            // 
+            // panelRight
+            // 
+            panelRight.Controls.Add(buttonExtract);
+            panelRight.Controls.Add(buttonExtractAll);
+            panelRight.Dock = DockStyle.Right;
+            panelRight.Location = new Point(388, 76);
+            panelRight.Name = "panelRight";
+            panelRight.Size = new Size(116, 425);
+            panelRight.TabIndex = 3;
+            // 
+            // buttonExtract
+            // 
+            buttonExtract.Location = new Point(4, 64);
+            buttonExtract.Margin = new Padding(4, 5, 4, 5);
+            buttonExtract.Name = "buttonExtract";
+            buttonExtract.Size = new Size(104, 52);
+            buttonExtract.TabIndex = 1;
+            buttonExtract.Text = "選択ファイルを\r\n抽出";
+            buttonExtract.UseVisualStyleBackColor = true;
+            buttonExtract.Click += Extract_Click;
+            // 
+            // openFileDialog1
+            // 
+            openFileDialog1.FileName = "openFileDialog1";
+            // 
+            // labelStatus
+            // 
+            labelStatus.Dock = DockStyle.Top;
+            labelStatus.Location = new Point(0, 56);
+            labelStatus.Name = "labelStatus";
+            labelStatus.Size = new Size(504, 20);
+            labelStatus.TabIndex = 1;
+            labelStatus.TextAlign = ContentAlignment.MiddleLeft;
+            // 
+            // panelFileList
+            // 
+            panelFileList.Controls.Add(listViewFiles);
+            panelFileList.Dock = DockStyle.Fill;
+            panelFileList.Location = new Point(0, 76);
+            panelFileList.Name = "panelFileList";
+            panelFileList.Padding = new Padding(4);
+            panelFileList.Size = new Size(388, 425);
+            panelFileList.TabIndex = 2;
+            // 
+            // listViewFiles
+            // 
+            listViewFiles.CheckBoxes = true;
+            listViewFiles.Columns.AddRange(new ColumnHeader[] { columnFileName, columnSize, columnDate });
+            listViewFiles.Dock = DockStyle.Fill;
+            listViewFiles.FullRowSelect = true;
+            listViewFiles.GridLines = true;
+            listViewFiles.Location = new Point(4, 4);
+            listViewFiles.Name = "listViewFiles";
+            listViewFiles.Size = new Size(380, 417);
+            listViewFiles.Sorting = SortOrder.Ascending;
+            listViewFiles.TabIndex = 0;
+            listViewFiles.UseCompatibleStateImageBehavior = false;
+            listViewFiles.View = View.Details;
+            // 
+            // columnFileName
+            // 
+            columnFileName.Text = "ファイル名";
+            columnFileName.Width = 120;
+            // 
+            // columnSize
+            // 
+            columnSize.Text = "サイズ";
+            columnSize.TextAlign = HorizontalAlignment.Right;
+            columnSize.Width = 80;
+            // 
+            // columnDate
+            // 
+            columnDate.Text = "日付";
+            columnDate.Width = 150;
+            // 
+            // FormDiskImageTool
+            // 
+            AutoScaleDimensions = new SizeF(7F, 17F);
+            AutoScaleMode = AutoScaleMode.Font;
+            ClientSize = new Size(504, 501);
+            Controls.Add(panelFileList);
+            Controls.Add(panelRight);
+            Controls.Add(labelStatus);
+            Controls.Add(panelTop);
+            Font = new Font("Yu Gothic UI", 9.75F, FontStyle.Regular, GraphicsUnit.Point, 128);
+            Name = "FormDiskImageTool";
+            Text = "Form1";
+            panelTop.ResumeLayout(false);
+            panelFileName.ResumeLayout(false);
+            panelRight.ResumeLayout(false);
+            panelFileList.ResumeLayout(false);
+            ResumeLayout(false);
+        }
+
+        #endregion
+
+        private Button buttonExtractAll;
+        private Button buttonSelectFile;
+        private Label labelFileName;
+        private Panel panelTop;
+        private Button buttonExtract;
+        private Panel panelRight;
+        private OpenFileDialog openFileDialog1;
+        private Label labelStatus;
+        private Panel panelFileName;
+        private Panel panelFileList;
+        private FolderBrowserDialog folderBrowserDialog1;
+        private ListView listViewFiles;
+        private ColumnHeader columnFileName;
+        private ColumnHeader columnSize;
+        private ColumnHeader columnDate;
+    }
+}
