@@ -99,9 +99,15 @@ public class DcuExtractor : IDisposable, IImageExtractor
 
         FileSystem = new(newBuf);
 
-        var root = FileSystem.Root;
-        this.Files = root.GetFiles();
-        this.ImageFile = file;
+        if (FileSystem.Root != null)
+        {
+            ImageFile = file;
+            Files = FileSystem.Root.GetFiles();
+        }
+        else
+        {
+            Files = [];
+        }
 
         return Files;
     }

@@ -38,10 +38,6 @@ public class FatFileSystem : IDisposable
     /// FATエントリのテーブル
     /// </summary>
     readonly List<uint> fat = [];
-    /// <summary>
-    /// ルートディレクトリのファイル一覧
-    /// </summary>
-    readonly FatFile? RootDirEntry;
 
     public FatType FatType { get; private set; }
     public int BytesPerSector { get; private set; }
@@ -57,6 +53,11 @@ public class FatFileSystem : IDisposable
     public int FatSizeBytes => FatSize16 * BytesPerSector;
 
     /// <summary>
+    /// ルートディレクトリエントリ
+    /// </summary>
+    public FatFile? Root { get; private set; }
+
+    /// <summary>
     /// FATイメージを操作する
     /// </summary>
     /// <param name="image"></param>
@@ -69,7 +70,7 @@ public class FatFileSystem : IDisposable
         ReadFAT(FatType);
 
         List<FatFile> entries = readRootDir();
-        RootDirEntry = new FatFile("/", entries);
+        Root = new FatFile("\\", entries);
     }
 
     /// <summary>
@@ -83,7 +84,7 @@ public class FatFileSystem : IDisposable
         ReadFAT(FatType);
 
         List<FatFile> entries = readRootDir();
-        RootDirEntry = new FatFile("\\", entries);
+        Root = new FatFile("\\", entries);
     }
 
     /// <summary>
@@ -370,24 +371,17 @@ public class FatFileSystem : IDisposable
     /// <returns></returns>
     public Stream OpenFile(string path)
     {
-        if (buffer.Count == 0 || RootDirEntry == null) throw new InvalidOperationException("FATイメージが開かれていません");
+        if (buffer.Count == 0 || Root == null) throw new InvalidOperationException("FATイメージが開かれていません");
 
-        var ent = RootDirEntry.GetFiles().FirstOrDefault(f => f.Name == path)
+        var ent = Root.GetFiles().FirstOrDefault(f => f.Name == path)
             ?? throw new InvalidOperationException($"ファイル '{path}' がありません");
         return OpenFile(ent);
     }
 
-    /// <summary>
-    /// ルートディレクトリエントリ
-    /// </summary>
-    public FatFile Root =>
-        buffer.Count == 0 || RootDirEntry == null
-            ? throw new InvalidOperationException("FATイメージが開かれていません")
-            : RootDirEntry;
 
     public void Dispose()
     {
-        RootDirEntry?.Dispose();
+        Root?.Dispose();
         buffer.Clear();
         fat.Clear();
 

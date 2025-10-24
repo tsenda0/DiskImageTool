@@ -4,11 +4,11 @@ namespace DiskImageTool;
 
 public partial class FormDiskImageTool : Form
 {
-    IImageExtractor? imageExtractor; // = new DcuExtractor();
-    IEnumerable<FatFile> files = [];
+    IImageExtractor? ImageExtractor;
+    IEnumerable<FatFile> Files = [];
 
-    CancellationTokenSource? cts;
-    Task<(int, int)>? extractTask;
+    CancellationTokenSource? CancellationTokenSource;
+    Task<(int, int)>? ExtractTask;
 
     public FormDiskImageTool()
     {
@@ -32,8 +32,8 @@ public partial class FormDiskImageTool : Form
         var result = openFileDialog1.ShowDialog(this);
         if (result == DialogResult.Cancel) return;
 
-        imageExtractor = null;
-        this.files = [];
+        ImageExtractor = null;
+        this.Files = [];
 
         labelFileName.Text = "";
         listViewFiles.Items.Clear();
@@ -43,29 +43,29 @@ public partial class FormDiskImageTool : Form
             switch (openFileDialog1.FilterIndex)
             {
                 case 1:
-                    imageExtractor = new DcuExtractor();
-                    this.files = imageExtractor.OpenImage(openFileDialog1.FileName).OrderBy(f => f.Name);
+                    ImageExtractor = new DcuExtractor();
+                    this.Files = ImageExtractor.OpenImage(openFileDialog1.FileName).OrderBy(f => f.Name);
                     break;
                 default:
-                    imageExtractor = new RawExtractor();
-                    this.files = imageExtractor.OpenImage(openFileDialog1.FileName).OrderBy(f => f.Name);
+                    ImageExtractor = new RawExtractor();
+                    this.Files = ImageExtractor.OpenImage(openFileDialog1.FileName).OrderBy(f => f.Name);
                     break;
             }
             labelFileName.Text = openFileDialog1.FileName;
 
-            if (imageExtractor?.FileSystem != null)
+            if (ImageExtractor?.FileSystem != null)
             {
-                Debug.WriteLine($"FAT type: {imageExtractor.FileSystem.FatType}");
-                Debug.WriteLine($"bytes per sector: {imageExtractor.FileSystem.BytesPerSector}");
-                Debug.WriteLine($"sectors per cluster: {imageExtractor.FileSystem.SectorsPerCluster}");
-                Debug.WriteLine($"reserved sectors count: {imageExtractor.FileSystem.ReservedSectorCount}");
-                Debug.WriteLine($"total sectors count(16): {imageExtractor.FileSystem.TotalSector16}");
-                Debug.WriteLine($"total sectors count(32): {imageExtractor.FileSystem.TotalSector32}");
-                Debug.WriteLine($"number of FATs: {imageExtractor.FileSystem.NumFats}");
-                Debug.WriteLine($"FAT size(sector count): {imageExtractor.FileSystem.FatSize16}");
-                Debug.WriteLine($"root entries count: {imageExtractor.FileSystem.RootEntriesCount}");
+                Debug.WriteLine($"FAT type: {ImageExtractor.FileSystem.FatType}");
+                Debug.WriteLine($"bytes per sector: {ImageExtractor.FileSystem.BytesPerSector}");
+                Debug.WriteLine($"sectors per cluster: {ImageExtractor.FileSystem.SectorsPerCluster}");
+                Debug.WriteLine($"reserved sectors count: {ImageExtractor.FileSystem.ReservedSectorCount}");
+                Debug.WriteLine($"total sectors count(16): {ImageExtractor.FileSystem.TotalSector16}");
+                Debug.WriteLine($"total sectors count(32): {ImageExtractor.FileSystem.TotalSector32}");
+                Debug.WriteLine($"number of FATs: {ImageExtractor.FileSystem.NumFats}");
+                Debug.WriteLine($"FAT size(sector count): {ImageExtractor.FileSystem.FatSize16}");
+                Debug.WriteLine($"root entries count: {ImageExtractor.FileSystem.RootEntriesCount}");
 
-                Debug.WriteLine($"image size: {imageExtractor.FileSystem.ImageSizeBytes}");
+                Debug.WriteLine($"image size: {ImageExtractor.FileSystem.ImageSizeBytes}");
             }
         }
         catch (Exception ex)
@@ -74,7 +74,7 @@ public partial class FormDiskImageTool : Form
 
         }
 
-        listViewFiles.Items.AddRange([.. files.Select(f =>
+        listViewFiles.Items.AddRange([.. Files.Select(f =>
         {
             var item = new ListViewItem(f.Name);
             item.SubItems.Add(new ListViewItem.ListViewSubItem(item, $"{f.Length:N0}"));
@@ -83,18 +83,18 @@ public partial class FormDiskImageTool : Form
             item.Tag = f;
             return item;
         })]);
-        labelStatus.Text = $@"{this.files.Count()}ファイル";
+        labelStatus.Text = $@"{this.Files.Count()}ファイル";
     }
 
     private void ExtractAll_Click(object sender, EventArgs e)
     {
-        if (imageExtractor == null || imageExtractor.ImageFile.Length == 0)
+        if (ImageExtractor == null || ImageExtractor.ImageFile.Length == 0)
         {
             MessageBox.Show(@"イメージファイルが選択されていません。");
             return;
         }
 
-        if (!files.Any())
+        if (!Files.Any())
         {
             MessageBox.Show("ファイルがありません。");
             return;
@@ -103,18 +103,18 @@ public partial class FormDiskImageTool : Form
         var result = folderBrowserDialog1.ShowDialog(this);
         if (result == DialogResult.Cancel) return;
 
-        StartExtract(files);
+        StartExtract(Files);
     }
 
     private void Extract_Click(object sender, EventArgs e)
     {
-        if (imageExtractor == null || imageExtractor.ImageFile.Length == 0)
+        if (ImageExtractor == null || ImageExtractor.ImageFile.Length == 0)
         {
             MessageBox.Show(@"イメージファイルが選択されていません。");
             return;
         }
 
-        if (!files.Any())
+        if (!Files.Any())
         {
             MessageBox.Show("ファイルがありません。");
             return;
@@ -140,18 +140,18 @@ public partial class FormDiskImageTool : Form
 
     async void StartExtract(IEnumerable<FatFile> files)
     {
-        cts = new CancellationTokenSource();
+        CancellationTokenSource = new CancellationTokenSource();
 
         using var formProgress = new FormProgress();
-        formProgress.CancelClicked += () => cts?.Cancel();
+        formProgress.CancelClicked += () => CancellationTokenSource?.Cancel();
         formProgress.MaxCount = files.Count();
         formProgress.Value = 0;
         formProgress.Show(this);
 
         try
         {
-            extractTask = ExtractFiles(files, cts, formProgress);
-            (int sucess, int error) = await extractTask;
+            ExtractTask = ExtractFiles(files, CancellationTokenSource, formProgress);
+            (int sucess, int error) = await ExtractTask;
 
             if (error == 0)
             {
@@ -212,7 +212,7 @@ public partial class FormDiskImageTool : Form
                         });
                     }
 
-                    imageExtractor?.ExtractFile(file, folderBrowserDialog1.SelectedPath);
+                    ImageExtractor?.ExtractFile(file, folderBrowserDialog1.SelectedPath);
                     success++;
                 }
                 catch (Exception ex)
@@ -228,26 +228,26 @@ public partial class FormDiskImageTool : Form
 
     private void FormDiskImageTool_FormClosing(object sender, FormClosingEventArgs e)
     {
-        if (cts != null)
+        if (CancellationTokenSource != null)
         {
-            Debug.WriteLine("cancelling task"); cts?.Cancel();
+            Debug.WriteLine("cancelling task"); CancellationTokenSource?.Cancel();
         }
 
-        if (extractTask != null)
+        if (ExtractTask != null)
         {
-            Debug.WriteLine("waiting task for stop"); extractTask?.Wait();
+            Debug.WriteLine("waiting task for stop"); ExtractTask?.Wait();
         }
     }
 
     private void buttonFATInfo_Click(object sender, EventArgs e)
     {
-        if (imageExtractor?.FileSystem == null)
+        if (ImageExtractor?.FileSystem == null)
         {
             MessageBox.Show("イメージが開かれていません");
             return;
         }
 
-        FormFatInfo formInfo = new FormFatInfo(imageExtractor.FileSystem);
+        FormFatInfo formInfo = new FormFatInfo(ImageExtractor.FileSystem);
         formInfo.ShowDialog(this);
     }
 }
