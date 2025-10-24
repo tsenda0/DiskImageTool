@@ -52,6 +52,9 @@ public class FatFileSystem : IDisposable
     public uint TotalSector32 { get; private set; }
     public int FatSize16 { get; private set; }
     public int RootEntriesCount { get; private set; }
+    public int ImageSizeBytes => buffer.Count;
+    public int ClusterSize => BytesPerSector * SectorsPerCluster;
+    public int FatSizeBytes => FatSize16 * BytesPerSector;
 
     /// <summary>
     /// FATイメージを操作する

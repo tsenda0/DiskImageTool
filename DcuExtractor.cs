@@ -36,7 +36,7 @@ public class DcuExtractor : IDisposable, IImageExtractor
     /// <summary>
     /// イメージ内のFATファイルシステム
     /// </summary>
-    private FatFileSystem? FileSystem { get; set; }
+    public FatFileSystem? FileSystem { get; private set; }
 
     /// <summary>
     /// イメージに含まれるファイルの一覧
@@ -98,18 +98,6 @@ public class DcuExtractor : IDisposable, IImageExtractor
         FileSystem?.Dispose();
 
         FileSystem = new(newBuf);
-        Debug.WriteLine($"FAT type: {FileSystem.FatType}");
-        Debug.WriteLine($"bytes per sector: {FileSystem.BytesPerSector}");
-        Debug.WriteLine($"sectors per cluster: {FileSystem.SectorsPerCluster}");
-        Debug.WriteLine($"reserved sectors count: {FileSystem.ReservedSectorCount}");
-        Debug.WriteLine($"total sectors count(16): {FileSystem.TotalSector16}");
-        Debug.WriteLine($"total sectors count(32): {FileSystem.TotalSector32}");
-        Debug.WriteLine($"number of FATs: {FileSystem.NumFats}");
-        Debug.WriteLine($"FAT size(sector count): {FileSystem.FatSize16}");
-        Debug.WriteLine($"root entries count: {FileSystem.RootEntriesCount}");
-
-        Debug.WriteLine($"source image size: {dcuImage.Length}");
-        Debug.WriteLine($"real image size: {newBuf.Length}");
 
         var root = FileSystem.Root;
         this.Files = root.GetFiles();

@@ -35,6 +35,7 @@ namespace DiskImageTool
             panelTop = new Panel();
             panelFileName = new Panel();
             panelRight = new Panel();
+            buttonFATInfo = new Button();
             buttonExtract = new Button();
             openFileDialog1 = new OpenFileDialog();
             labelStatus = new Label();
@@ -106,6 +107,7 @@ namespace DiskImageTool
             // 
             // panelRight
             // 
+            panelRight.Controls.Add(buttonFATInfo);
             panelRight.Controls.Add(buttonExtract);
             panelRight.Controls.Add(buttonExtractAll);
             panelRight.Dock = DockStyle.Right;
@@ -113,6 +115,17 @@ namespace DiskImageTool
             panelRight.Name = "panelRight";
             panelRight.Size = new Size(116, 425);
             panelRight.TabIndex = 3;
+            // 
+            // buttonFATInfo
+            // 
+            buttonFATInfo.Location = new Point(4, 172);
+            buttonFATInfo.Margin = new Padding(4, 5, 4, 5);
+            buttonFATInfo.Name = "buttonFATInfo";
+            buttonFATInfo.Size = new Size(104, 52);
+            buttonFATInfo.TabIndex = 2;
+            buttonFATInfo.Text = "FAT詳細...";
+            buttonFATInfo.UseVisualStyleBackColor = true;
+            buttonFATInfo.Click += buttonFATInfo_Click;
             // 
             // buttonExtract
             // 
@@ -191,6 +204,7 @@ namespace DiskImageTool
             Font = new Font("Yu Gothic UI", 9.75F, FontStyle.Regular, GraphicsUnit.Point, 128);
             Name = "FormDiskImageTool";
             Text = "Form1";
+            FormClosing += FormDiskImageTool_FormClosing;
             panelTop.ResumeLayout(false);
             panelFileName.ResumeLayout(false);
             panelRight.ResumeLayout(false);
@@ -215,5 +229,6 @@ namespace DiskImageTool
         private ColumnHeader columnFileName;
         private ColumnHeader columnSize;
         private ColumnHeader columnDate;
+        private Button buttonFATInfo;
     }
 }
