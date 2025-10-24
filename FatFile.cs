@@ -6,13 +6,13 @@ public class FatFile : IDisposable
 
     public string Name { get; }
 
-    public int FirstCluster { get; }
+    public uint FirstCluster { get; }
 
     public uint Length { get; }
 
     public DateTime WriteDateTime { get; }
 
-    public FatFile(string name, int firstCluster, uint size, DateTime writeDateTime)
+    public FatFile(string name, uint firstCluster, uint size, DateTime writeDateTime)
     {
         this.Name = name;
         this.Length = size;

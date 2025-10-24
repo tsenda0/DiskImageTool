@@ -148,11 +148,11 @@ public partial class FormDiskImageTool : Form
 
         if (errors.Count == 0)
         {
-            MessageBox.Show($"{files.Count() - errors.Count}個のファイルを抽出しました。");
+            MessageBox.Show($"{listViewFiles.CheckedItems.Count - errors.Count}個のファイルを抽出しました。");
         }
         else
         {
-            MessageBox.Show($"{files.Count() - errors.Count}件のファイルを抽出し、{errors.Count}件のエラーがありました。");
+            MessageBox.Show($"{listViewFiles.CheckedItems.Count - errors.Count}件のファイルを抽出し、{errors.Count}件のエラーがありました。");
         }
     }
 
