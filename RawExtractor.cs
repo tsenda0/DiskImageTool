@@ -1,8 +1,6 @@
-using System.Diagnostics;
-
 namespace DiskImageTool;
 
-public class RawExtractor : IDisposable, IImageExtractor
+public class RawExtractor : IImageExtractor
 {
     /// <summary>
     /// disk buffer
@@ -13,14 +11,6 @@ public class RawExtractor : IDisposable, IImageExtractor
     /// イメージ内のFATファイルシステム
     /// </summary>
     public FatFileSystem? FileSystem { get; private set; }
-
-    public string ImageFile { get; private set; } = "";
-
-    /// <summary>
-    /// イメージに含まれるファイルの一覧
-    /// </summary>
-    private IEnumerable<FatFile> Files { get; set; } = [];
-
 
     public void ExtractFile(FatFile file, string path)
     {
@@ -64,24 +54,23 @@ public class RawExtractor : IDisposable, IImageExtractor
 
             workMemStream.Write(buffer, 0, nread);
 
-            Debug.WriteLine($"{file}: read {nread} bytes");
+            //Debug.WriteLine($"{file}: read {nread} bytes");
         } while (nread > 0);
 
         return workMemStream.ToArray();
     }
 
-    public IEnumerable<FatFile> OpenImage(string file)
+    public void OpenImage(string file)
     {
         var image = readRawImage(file);
         FileSystem?.Dispose();
 
         FileSystem = new(image);
+    }
 
-        var root = FileSystem.Root;
-        this.Files = root.GetFiles();
-        this.ImageFile = file;
-
-        return Files;
+    public FatFile? GetRoot(bool isUTC = false)
+    {
+        return FileSystem?.GetRoot(isUTC);
     }
 
     public void Dispose()

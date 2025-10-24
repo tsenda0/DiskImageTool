@@ -1,14 +1,13 @@
 
-namespace DiskImageTool
+namespace DiskImageTool;
+
+public interface IImageExtractor : IDisposable
 {
-    public interface IImageExtractor
-    {
-        string ImageFile { get; }
+    FatFileSystem? FileSystem { get; }
 
-        FatFileSystem? FileSystem { get; }
+    void ExtractFile(FatFile file, string path);
 
-        void ExtractFile(FatFile file, string path);
+    void OpenImage(string file);
 
-        IEnumerable<FatFile> OpenImage(string file);
-    }
+    FatFile? GetRoot(bool isUTC);
 }

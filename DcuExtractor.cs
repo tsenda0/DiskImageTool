@@ -1,8 +1,6 @@
-using System.Diagnostics;
-
 namespace DiskImageTool;
 
-public class DcuExtractor : IDisposable, IImageExtractor
+public class DcuExtractor : IImageExtractor
 {
     /// <summary>
     /// disk buffer
@@ -38,15 +36,7 @@ public class DcuExtractor : IDisposable, IImageExtractor
     /// </summary>
     public FatFileSystem? FileSystem { get; private set; }
 
-    /// <summary>
-    /// イメージに含まれるファイルの一覧
-    /// </summary>
-    private IEnumerable<FatFile> Files { get; set; } = [];
-
-    /// <summary>
-    /// DCUイメージファイル
-    /// </summary>
-    public string ImageFile { get; private set; } = "";
+    FatFile? RootDir = null;
 
     /// <summary>
     /// トラックマップを使用してイメージを再構築(未使用トラックの情報を反映する)
@@ -90,20 +80,28 @@ public class DcuExtractor : IDisposable, IImageExtractor
     /// </summary>
     /// <param name="file"></param>
     /// <returns></returns>
-    public IEnumerable<FatFile> OpenImage(string file)
+    public void OpenImage(string file)
     {
         var dcuImage = readDCUImage(file);
         var newBuf = rebuildDCUImage(dcuImage);
 
         FileSystem?.Dispose();
+        RootDir = null;
+        lastUTCflag = false;
 
         FileSystem = new(newBuf);
+    }
 
-        var root = FileSystem.Root;
-        this.Files = root.GetFiles();
-        this.ImageFile = file;
+    bool lastUTCflag = false;
+    public FatFile? GetRoot(bool isUTC)
+    {
+        if (RootDir == null || lastUTCflag != isUTC)
+        {
+            RootDir = FileSystem?.GetRoot(isUTC);
+            lastUTCflag = isUTC;
+        }
 
-        return Files;
+        return RootDir;
     }
 
     /// <summary>
@@ -125,7 +123,7 @@ public class DcuExtractor : IDisposable, IImageExtractor
 
             workMemStream.Write(buffer, 0, nread);
 
-            Debug.WriteLine($"{file}: read {nread} bytes");
+            //Debug.WriteLine($"{file}: read {nread} bytes");
         } while (nread > 0);
 
         return workMemStream.ToArray();

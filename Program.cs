@@ -11,6 +11,9 @@ internal static class Program
         // To customize application configuration such as set high DPI settings or default font,
         // see https://aka.ms/applicationconfiguration.
         ApplicationConfiguration.Initialize();
-        Application.Run(new FormDiskImageTool());
+
+        // 依存性を注入してフォームを起動
+        IImageExtractorFactory extractorFactory = new ImageExtractorFactory();
+        Application.Run(new FormDiskImageTool(extractorFactory));
     }
 }

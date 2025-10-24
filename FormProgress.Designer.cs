@@ -93,7 +93,7 @@ namespace DiskImageTool
             Font = new Font("Yu Gothic UI", 9.75F, FontStyle.Regular, GraphicsUnit.Point, 128);
             FormBorderStyle = FormBorderStyle.FixedSingle;
             Name = "FormProgress";
-            StartPosition = FormStartPosition.CenterParent;
+            StartPosition = FormStartPosition.Manual;
             Text = "ファイル抽出中";
             ResumeLayout(false);
         }

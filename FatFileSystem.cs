@@ -1,4 +1,5 @@
 using System.Diagnostics;
+using System.Text;
 
 namespace DiskImageTool;
 
@@ -7,10 +8,6 @@ namespace DiskImageTool;
 /// </summary>
 public class FatFileSystem : IDisposable
 {
-    /// <summary>
-    /// disk buffer
-    /// </summary>
-    const int BUFSIZE = 1440 * 1024;
     /// <summary>
     /// FATファイル日時の開始年
     /// </summary>
@@ -30,18 +27,44 @@ public class FatFileSystem : IDisposable
     const int ATR_LFN = 0x0f;
     const int ATR_DIR = 0x10;
 
+    #region BPB/DirEntry Offsets
+    // BPB (BIOS Parameter Block) Offsets
+    private const int BpbOffsetBytesPerSector = 11;
+    private const int BpbOffsetSectorsPerCluster = 13;
+    private const int BpbOffsetReservedSectorCount = 14;
+    private const int BpbOffsetNumFats = 16;
+    private const int BpbOffsetRootEntriesCount = 17;
+    private const int BpbOffsetTotalSector16 = 19;
+    private const int BpbOffsetFatSize16 = 22;
+    private const int BpbOffsetTotalSector32 = 32;
+
+    // Directory Entry Offsets
+    private const int DirEntryOffsetName = 0;
+    private const int DirEntryOffsetAttribute = 11;
+    private const int DirEntryOffsetFirstClusterHigh = 20;
+    private const int DirEntryOffsetTime = 22;
+    private const int DirEntryOffsetDate = 24;
+    private const int DirEntryOffsetFirstClusterLow = 26;
+    private const int DirEntryOffsetFileSize = 28;
+    #endregion
+
     /// <summary>
     /// 読み込まれたファイルシステムのイメージ
     /// </summary>
-    readonly List<byte> buffer = [];
+    /// <remarks>
+    /// List&lt;byte&gt; から byte[] に変更。
+    /// GetRange()によるコピーを避けるため、Span&lt;T&gt; を使用してアクセスする。
+    /// </remarks>
+    readonly byte[] buffer;
+
+    /// <summary>
+    /// bufferのReadOnlySpan表現
+    /// </summary>
+    private ReadOnlySpan<byte> BufferSpan => buffer;
     /// <summary>
     /// FATエントリのテーブル
     /// </summary>
     readonly List<uint> fat = [];
-    /// <summary>
-    /// ルートディレクトリのファイル一覧
-    /// </summary>
-    readonly FatFile? RootDirEntry;
 
     public FatType FatType { get; private set; }
     public int BytesPerSector { get; private set; }
@@ -52,9 +75,28 @@ public class FatFileSystem : IDisposable
     public uint TotalSector32 { get; private set; }
     public int FatSize16 { get; private set; }
     public int RootEntriesCount { get; private set; }
-    public int ImageSizeBytes => buffer.Count;
+    public int ImageSizeBytes => buffer.Length;
     public int ClusterSize => BytesPerSector * SectorsPerCluster;
     public int FatSizeBytes => FatSize16 * BytesPerSector;
+
+    readonly Encoding SjisEncoding = Encoding.GetEncoding("shift_jis");
+
+    FatFile? rootDir;
+
+    /// <summary>
+    /// ルートディレクトリエントリ
+    /// </summary>
+    public FatFile GetRoot(bool isUTC = false)
+    {
+        List<FatFile> entries = ReadRootDir(isUTC);
+        rootDir = new FatFile("\\", entries);
+        return rootDir;
+    }
+
+    static FatFileSystem()
+    {
+        Encoding.RegisterProvider(CodePagesEncodingProvider.Instance);
+    }
 
     /// <summary>
     /// FATイメージを操作する
@@ -62,14 +104,8 @@ public class FatFileSystem : IDisposable
     /// <param name="image"></param>
     public FatFileSystem(byte[] image)
     {
-        using var stream = new MemoryStream(image);
-
-        ReadImage(stream);
-        ReadBPB();
-        ReadFAT(FatType);
-
-        List<FatFile> entries = readRootDir();
-        RootDirEntry = new FatFile("/", entries);
+        buffer = image;
+        Initialize();
     }
 
     /// <summary>
@@ -78,25 +114,27 @@ public class FatFileSystem : IDisposable
     /// <param name="stream"></param>
     public FatFileSystem(Stream stream)
     {
-        ReadImage(stream);
+        buffer = ReadImage(stream);
+        Initialize();
+    }
+
+    private void Initialize()
+    {
         ReadBPB();
         ReadFAT(FatType);
-
-        List<FatFile> entries = readRootDir();
-        RootDirEntry = new FatFile("\\", entries);
     }
 
     /// <summary>
     /// ルートディレクトリのファイル一覧を取得
     /// </summary>
     /// <returns></returns>
-    private List<FatFile> readRootDir()
+    private List<FatFile> ReadRootDir(bool isUTC = false)
     {
         // Root directory
         List<FatFile> entries = [];
         for (int i = 0; i < RootEntriesCount; i++)
         {
-            var ent = GetFatDirEntry(i);
+            var ent = GetFatDirEntry(i, isUTC);
             if (ent != null) entries.Add(ent);
         }
 
@@ -109,7 +147,7 @@ public class FatFileSystem : IDisposable
     /// <param name="time"></param>
     /// <param name="date"></param>
     /// <returns></returns>
-    private static DateTime GetFatDateTime(ushort time, ushort date)
+    private static DateTime GetFatDateTime(ushort time, ushort date, bool isUTC = false)
     {
         int year = FAT_EPOCH_YEAR + (date >> 9);
         int month = (date & 0x1e0) >> 5;
@@ -117,7 +155,9 @@ public class FatFileSystem : IDisposable
         int hour = time >> 11;
         int minute = (time & 0x7e0) >> 5;
         int second = time & 0x1f;
-        DateTime writeDateTime = new DateTime(year, month, day, hour, minute, second);
+        DateTime writeDateTime = isUTC
+            ? new DateTime(year, month, day, hour, minute, second, DateTimeKind.Utc).ToLocalTime()
+            : new DateTime(year, month, day, hour, minute, second);
         return writeDateTime;
     }
 
@@ -126,48 +166,48 @@ public class FatFileSystem : IDisposable
     /// </summary>
     /// <param name="i"></param>
     /// <returns></returns>
-    FatFile? GetFatDirEntry(int i)
+    FatFile? GetFatDirEntry(int i, bool isUTC = false)
     {
+        // FAT32の場合、ルートディレクトリの位置をBPBから読む必要がある。
+        // このコードではルートディレクトリがクラスタチェーンにないFAT12/16を主に想定している。
+        // この実装はFAT12/16のルートディレクトリに対しては正しい。
+
         FatFile? ent = null;
 
         int RootDirOffset = ReservedSectorCount * BytesPerSector + FatSize16 * NumFats * BytesPerSector;
 
-        // file name
-        char[] entchars = new char[11];
-        for (int c = 0; c < 11; c++)
-        {
-            entchars[c] = Convert.ToChar(buffer[RootDirOffset + i * DirEntrySize + c]);
-        }
-        var atr = buffer[RootDirOffset + i * DirEntrySize + 11];
+        int entryOffset = RootDirOffset + i * DirEntrySize;
+        var entrySpan = BufferSpan.Slice(entryOffset, DirEntrySize);
 
-        if (entchars[0] != 0 && entchars[0] != DEL_MARK
+        // file name
+        var nameSpan = entrySpan.Slice(DirEntryOffsetName, 11);
+        var atr = entrySpan[DirEntryOffsetAttribute];
+
+        if (nameSpan[0] != 0 && nameSpan[0] != DEL_MARK
             && ((atr & ATR_DIR) == 0) && ((atr & ATR_LFN) != ATR_LFN))
         {
-            string strname = new(entchars);
-            var basename = strname.AsSpan(0, 8).Trim();
-            var ext = strname.AsSpan(8, 3).Trim();
+            // ファイル名をSJIS文字として解釈
+            var basename = SjisEncoding.GetString(nameSpan.Slice(0, 8)).TrimEnd();
+            var ext = SjisEncoding.GetString(nameSpan.Slice(8, 3)).TrimEnd();
             var filename = (ext.Length > 0) ? string.Concat(basename, ".", ext) : basename;
 
             // write date/time
-            int pos = RootDirOffset + i * DirEntrySize + 22;
-            ushort time = buffer.GetUshort(pos);
+            ushort time = BitConverter.ToUInt16(entrySpan.Slice(DirEntryOffsetTime));
+            ushort date = BitConverter.ToUInt16(entrySpan.Slice(DirEntryOffsetDate));
 
-            pos = RootDirOffset + i * DirEntrySize + 24;
-            ushort date = buffer.GetUshort(pos);
-
-            DateTime writeDateTime = GetFatDateTime(time, date);
+            DateTime writeDateTime = GetFatDateTime(time, date, isUTC);
 
             // start cluster
-            pos = RootDirOffset + i * DirEntrySize + 20;
-            uint firstH = buffer.GetUshort(pos);
-            pos = RootDirOffset + i * DirEntrySize + 26;
-            uint firstL = buffer.GetUshort(pos);
+            // 上位16bit。FAT32で有効。FAT12/16では使われない
+            uint firstH = BitConverter.ToUInt16(entrySpan.Slice(DirEntryOffsetFirstClusterHigh));
+            // 下位16bit
+            uint firstL = BitConverter.ToUInt16(entrySpan.Slice(DirEntryOffsetFirstClusterLow));
+            uint firstCluster = (firstH << 16) | firstL;
 
             // file size
-            pos = RootDirOffset + i * DirEntrySize + 28;
-            uint size = buffer.GetUint(pos);
+            uint size = BitConverter.ToUInt32(entrySpan.Slice(DirEntryOffsetFileSize));
 
-            ent = new FatFile(filename.ToString(), (firstH << 16) | firstL, size, writeDateTime);
+            ent = new FatFile(filename, firstCluster, size, writeDateTime);
         }
 
         return ent;
@@ -199,23 +239,23 @@ public class FatFileSystem : IDisposable
         fat.Clear();
 
         int pos = ReservedSectorCount * BytesPerSector;
-        List<byte> fatTmp = buffer.GetRange(pos, FatSize16 * NumFats * BytesPerSector);
+        var fatSpan = BufferSpan.Slice(pos, FatSize16 * BytesPerSector); // 1番目のFATのみ読む
 
         pos = 0;
         do
         {
             //3bytesあたり2つのFATエントリ
             ushort ent;
-            ent = (ushort)(fatTmp[pos]
-                | (fatTmp[pos + 1] & 0xf) << 8);
+            ent = (ushort)(fatSpan[pos]
+                | (fatSpan[pos + 1] & 0xf) << 8);
             fat.Add(ent);
 
-            ent = (ushort)((fatTmp[pos + 1] >> 4)
-                | (fatTmp[pos + 2] << 4));
+            ent = (ushort)((fatSpan[pos + 1] >> 4)
+                | (fatSpan[pos + 2] << 4));
             fat.Add(ent);
 
             pos += 3;
-        } while (pos < (fatTmp.Count / NumFats) - 3);
+        } while (pos < fatSpan.Length - 2); // 3バイトずつ読むので境界チェックを調整
     }
 
     void ReadFAT16()
@@ -223,17 +263,14 @@ public class FatFileSystem : IDisposable
         fat.Clear();
 
         int pos = ReservedSectorCount * BytesPerSector;
-        List<byte> fatTmp = buffer.GetRange(pos, FatSize16 * NumFats * BytesPerSector);
+        var fatSpan = BufferSpan.Slice(pos, FatSize16 * BytesPerSector);
 
-        pos = 0;
-        do
+        for (pos = 0; pos < fatSpan.Length; pos += 2)
         {
             //2bytesあたり1つのFATエントリ
-            ushort ent;
-            ent = fatTmp.GetUshort(pos);
-            pos += 2;
+            ushort ent = BitConverter.ToUInt16(fatSpan.Slice(pos, 2));
             fat.Add(ent);
-        } while (pos < (fatTmp.Count / NumFats));
+        }
     }
 
     void ReadFAT32()
@@ -241,37 +278,31 @@ public class FatFileSystem : IDisposable
         fat.Clear();
 
         int pos = ReservedSectorCount * BytesPerSector;
-        List<byte> fatTmp = buffer.GetRange(pos, FatSize16 * NumFats * BytesPerSector);
+        var fatSpan = BufferSpan.Slice(pos, FatSize16 * BytesPerSector);
 
-        pos = 0;
-        do
+        for (pos = 0; pos < fatSpan.Length; pos += 4)
         {
             //4bytesあたり1つのFATエントリ
-            uint ent;
-            ent = fatTmp.GetUint(pos);
+            uint ent = BitConverter.ToUInt32(fatSpan.Slice(pos, 4));
             fat.Add(ent);
-            pos += 4;
-        } while (pos < (fatTmp.Count / NumFats));
+        }
     }
 
     /// <summary>
     /// ファイルシステムイメージの読み込み
     /// </summary>
     /// <param name="stream"></param>
-    /// <returns></returns>
-    int ReadImage(Stream stream)
+    /// <returns>読み込んだイメージのバイト配列</returns>
+    private static byte[] ReadImage(Stream stream)
     {
-        buffer.Clear();
-        byte[] readBuffer = new byte[BUFSIZE];
-        int nread;
-        do
+        if (stream is MemoryStream ms)
         {
-            nread = stream.Read(readBuffer, 0, readBuffer.Length);
-            if (nread == 0) break;
-            buffer.AddRange(readBuffer);
-        } while (nread > 0);
+            return ms.ToArray();
+        }
 
-        return buffer.Count;
+        using var memoryStream = new MemoryStream();
+        stream.CopyTo(memoryStream);
+        return memoryStream.ToArray();
     }
 
     /// <summary>
@@ -280,42 +311,32 @@ public class FatFileSystem : IDisposable
     /// <exception cref="InvalidOperationException"></exception>
     private void ReadBPB()
     {
-        int pos;
-        //int pos = 0;
-        //if (buffer[pos++] != 0xeb) throw new InvalidOperationException("not a FAT image");
-        //pos++;
-        //if (buffer[pos++] != 0x90) throw new InvalidOperationException("not a FAT image");
+        // Span<T> を使って安全に読み込む
+        var bpbSpan = BufferSpan;
 
-        // 11(2) reserved sectors
-        pos = 11;
-        BytesPerSector = buffer.GetUshort(pos++); //buffer[pos++] | buffer[pos++] << 8;
+        BytesPerSector = BitConverter.ToUInt16(bpbSpan.Slice(BpbOffsetBytesPerSector));
         if (BytesPerSector is not 512 and not 1024 and not 2048 and not 4096)
             throw new InvalidOperationException("セクタサイズが不正です");
-        pos++;
 
         // 13(1) sectors per cluster
-        SectorsPerCluster = buffer[pos++]; //buffer[pos++];
+        SectorsPerCluster = bpbSpan[BpbOffsetSectorsPerCluster];
 
         // 14(2) reserved sector count
-        ReservedSectorCount = buffer.GetUshort(pos++); //buffer[pos++] | buffer[pos++] << 8;
-        pos++;
+        ReservedSectorCount = BitConverter.ToUInt16(bpbSpan.Slice(BpbOffsetReservedSectorCount));
 
         // 16(1) number of FATs
-        NumFats = buffer[pos++];
+        NumFats = bpbSpan[BpbOffsetNumFats];
 
         // 17(2) root entries count
-        RootEntriesCount = buffer.GetUshort(pos++); //buffer[pos++] | buffer[pos++] << 8;
-        pos++;
+        RootEntriesCount = BitConverter.ToUInt16(bpbSpan.Slice(BpbOffsetRootEntriesCount));
 
         // 19(2) total sectors
-        TotalSector16 = buffer.GetUshort(pos++); // buffer[pos++] | buffer[pos++] << 8;
-        pos += 2;
+        TotalSector16 = BitConverter.ToUInt16(bpbSpan.Slice(BpbOffsetTotalSector16));
 
         // 22(2) FAT size(number of sector)
-        FatSize16 = buffer.GetUshort(pos); // buffer[pos++] | buffer[pos++] << 8;
+        FatSize16 = BitConverter.ToUInt16(bpbSpan.Slice(BpbOffsetFatSize16));
 
-        pos = 32;
-        TotalSector32 = buffer.GetUint(pos);
+        TotalSector32 = BitConverter.ToUInt32(bpbSpan.Slice(BpbOffsetTotalSector32));
 
         // FAT種別の推定
         int rootDirSector = ReservedSectorCount + FatSize16 * NumFats;
@@ -336,60 +357,64 @@ public class FatFileSystem : IDisposable
     /// <returns></returns>
     public Stream OpenFile(FatFile file)
     {
-        List<byte> fileBuffer = [];
+        // ファイルサイズに基づいてバッファを一度だけ確保する
+        byte[] fileBuffer = new byte[file.Length];
+        var fileSpan = fileBuffer.AsSpan();
+        int bytesCopied = 0;
+
         Debug.Write($"{file.Name}: {file.Length} bytes: scanning cluster: ");
 
         int datastart = (ReservedSectorCount + FatSize16 * NumFats) * BytesPerSector;
         datastart += DirEntrySize * RootEntriesCount;
 
-        var EMark = FatType == FatType.FAT12 ? EMARK_FAT12 : FatType == FatType.FAT16 ? EMARK_FAT16 : EMARK_FAT32;
+        var EMark = FatType switch
+        {
+            FatType.FAT12 => EMARK_FAT12,
+            FatType.FAT16 => EMARK_FAT16,
+            FatType.FAT32 => EMARK_FAT32,
+            FatType.Unknown => throw new InvalidOperationException("FAT種別が不明です"),
+            _ => throw new InvalidOperationException("FAT種別が不明です"),
+        };
 
         uint cluster = file.FirstCluster;
         do
         {
             if (cluster == 0) break;
             Debug.Write($"{cluster} => ");
-            fileBuffer.AddRange(
-                buffer.GetRange(
-                    (int)(datastart + (cluster - 2) * BytesPerSector * SectorsPerCluster),
-                    BytesPerSector * SectorsPerCluster));
+
+            int sourceOffset = (int)(datastart + (cluster - 2) * ClusterSize);
+            int bytesToCopy = Math.Min(ClusterSize, fileSpan.Length - bytesCopied);
+            BufferSpan.Slice(sourceOffset, bytesToCopy).CopyTo(fileSpan.Slice(bytesCopied));
+            bytesCopied += bytesToCopy;
+
             cluster = fat[(int)cluster];
-        } while (cluster is > 0 && cluster < EMark);
+        } while (cluster is > 0 && cluster < EMark && bytesCopied < file.Length);
 
         Debug.WriteLine($"{(cluster >= EMark ? "END" : cluster)}");
 
-        if (fileBuffer.Count > file.Length) fileBuffer.RemoveRange((int)file.Length, (int)(fileBuffer.Count - file.Length));
-
-        return new MemoryStream([.. fileBuffer]);
+        return new MemoryStream(fileBuffer, 0, bytesCopied, false);
     }
 
     /// <summary>
     /// ファイルシステム内のファイルを開く
     /// </summary>
-    /// <param name="file"></param>
+    /// <param name="file"></param>D
     /// <returns></returns>
     public Stream OpenFile(string path)
     {
-        if (buffer.Count == 0 || RootDirEntry == null) throw new InvalidOperationException("FATイメージが開かれていません");
+        if (buffer.Length == 0 || rootDir == null) throw new InvalidOperationException("FATイメージが開かれていません");
 
-        var ent = RootDirEntry.GetFiles().FirstOrDefault(f => f.Name == path)
+        var ent = rootDir.GetFiles().FirstOrDefault(f => f.Name == path)
             ?? throw new InvalidOperationException($"ファイル '{path}' がありません");
         return OpenFile(ent);
     }
 
-    /// <summary>
-    /// ルートディレクトリエントリ
-    /// </summary>
-    public FatFile Root =>
-        buffer.Count == 0 || RootDirEntry == null
-            ? throw new InvalidOperationException("FATイメージが開かれていません")
-            : RootDirEntry;
 
     public void Dispose()
     {
-        RootDirEntry?.Dispose();
-        buffer.Clear();
-        fat.Clear();
+        //Root?.Dispose();
+        // buffer は GC 対象。fat はクリアする。
+        fat.Clear(); // List<T>のリソースを解放
 
         GC.SuppressFinalize(this);
     }

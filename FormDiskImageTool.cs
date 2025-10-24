@@ -4,16 +4,33 @@ namespace DiskImageTool;
 
 public partial class FormDiskImageTool : Form
 {
-    IImageExtractor? imageExtractor; // = new DcuExtractor();
-    IEnumerable<FatFile> files = [];
+    private readonly IImageExtractorFactory _imageExtractorFactory;
+    IImageExtractor? ImageExtractor;
 
-    CancellationTokenSource? cts;
-    Task<(int, int)>? extractTask;
+    string ImageFile = "";
+    ImageFormat ImageFormat = ImageFormat.Unknown;
 
-    public FormDiskImageTool()
+    SortOrder SortOrder = SortOrder.Unknown;
+    SortOrder lastSortOrder = SortOrder.Name;
+    int SortColumn = 0;
+    SortDirection SortDirection = SortDirection.Ascending;
+
+    readonly Dictionary<SortOrder, IComparer<FatFile?>> SorterMap = new() {
+        { SortOrder.Unknown, new FileNameComparer() },
+        { SortOrder.Name, new FileNameComparer() },
+        { SortOrder.Size, new FileSizeComparer() },
+        { SortOrder.Date, new FileDateComparer() },
+    };
+
+    CancellationTokenSource? CancellationTokenSource;
+    Task? ExtractTask;
+
+    public FormDiskImageTool(IImageExtractorFactory imageExtractorFactory)
     {
         InitializeComponent();
+        _imageExtractorFactory = imageExtractorFactory;
         InitFileDialog();
+        UpdateListView([]);
     }
 
     void InitFileDialog()
@@ -32,99 +49,124 @@ public partial class FormDiskImageTool : Form
         var result = openFileDialog1.ShowDialog(this);
         if (result == DialogResult.Cancel) return;
 
-        imageExtractor = null;
-        this.files = [];
+        ImageFile = openFileDialog1.FileName;
+        ImageFormat = openFileDialog1.FilterIndex switch
+        {
+            1 => ImageFormat.DCU,
+            2 => ImageFormat.Raw,
+            _ => ImageFormat.Unknown,
+        };
+
+        if (ImageFile.Length == 0 || ImageFormat == ImageFormat.Unknown) return;
+
+        if (ImageFormat == ImageFormat.DCU) checkIsUTC.Checked = false;
 
         labelFileName.Text = "";
         listViewFiles.Items.Clear();
-
         try
         {
-            switch (openFileDialog1.FilterIndex)
-            {
-                case 1:
-                    imageExtractor = new DcuExtractor();
-                    this.files = imageExtractor.OpenImage(openFileDialog1.FileName).OrderBy(f => f.Name);
-                    break;
-                default:
-                    imageExtractor = new RawExtractor();
-                    this.files = imageExtractor.OpenImage(openFileDialog1.FileName).OrderBy(f => f.Name);
-                    break;
-            }
-            labelFileName.Text = openFileDialog1.FileName;
+            OpenImageFile(ImageFile, ImageFormat);
 
-            if (imageExtractor?.FileSystem != null)
-            {
-                Debug.WriteLine($"FAT type: {imageExtractor.FileSystem.FatType}");
-                Debug.WriteLine($"bytes per sector: {imageExtractor.FileSystem.BytesPerSector}");
-                Debug.WriteLine($"sectors per cluster: {imageExtractor.FileSystem.SectorsPerCluster}");
-                Debug.WriteLine($"reserved sectors count: {imageExtractor.FileSystem.ReservedSectorCount}");
-                Debug.WriteLine($"total sectors count(16): {imageExtractor.FileSystem.TotalSector16}");
-                Debug.WriteLine($"total sectors count(32): {imageExtractor.FileSystem.TotalSector32}");
-                Debug.WriteLine($"number of FATs: {imageExtractor.FileSystem.NumFats}");
-                Debug.WriteLine($"FAT size(sector count): {imageExtractor.FileSystem.FatSize16}");
-                Debug.WriteLine($"root entries count: {imageExtractor.FileSystem.RootEntriesCount}");
+            labelFileName.Text = ImageFile;
 
-                Debug.WriteLine($"image size: {imageExtractor.FileSystem.ImageSizeBytes}");
-            }
+            var files = GetFiles();
+            UpdateListView(files);
         }
         catch (Exception ex)
         {
             MessageBox.Show($"エラー: {ex.Message}");
-
         }
-
-        listViewFiles.Items.AddRange([.. files.Select(f =>
-        {
-            var item = new ListViewItem(f.Name);
-            item.SubItems.Add(new ListViewItem.ListViewSubItem(item, $"{f.Length:N0}"));
-            item.SubItems.Add(new ListViewItem.ListViewSubItem(item, $"{f.WriteDateTime:yyyy-MM-dd HH:mm:ss}"));
-            //item.SubItems.Add(f.Date);
-            item.Tag = f;
-            return item;
-        })]);
-        labelStatus.Text = $@"{this.files.Count()}ファイル";
     }
 
-    private void ExtractAll_Click(object sender, EventArgs e)
+    private void OpenImageFile(string imageFile, ImageFormat format)
     {
-        if (imageExtractor == null || imageExtractor.ImageFile.Length == 0)
+        ImageExtractor?.Dispose(); // 既存のExtractorを破棄
+
+        ImageExtractor = _imageExtractorFactory.Create(format);
+        ImageExtractor.OpenImage(imageFile);
+    }
+
+    private IEnumerable<FatFile> GetFiles()
+    {
+        if (ImageExtractor == null)
         {
-            MessageBox.Show(@"イメージファイルが選択されていません。");
+            return [];
+        }
+
+        var root = ImageExtractor.GetRoot(checkIsUTC.Checked);
+        return root?.GetFiles() ?? [];
+    }
+
+    void UpdateListView(IEnumerable<FatFile> files)
+    {
+        var fileList = files.ToList();
+        listViewFiles.Items.Clear();
+
+        var lvitems = fileList.Select(f =>
+        {
+            var item = new ListViewItem(f.Name);
+            item.SubItems.Add(new ListViewItem.ListViewSubItem(item, $"{f.Length:N0}")); // N0 は桁区切り付き数値を表す
+            item.SubItems.Add(new ListViewItem.ListViewSubItem(item, $"{f.WriteDateTime:yyyy-MM-dd HH:mm:ss}"));
+            item.Tag = f;
+            return item;
+        });
+
+        var sortedLvItems = SortDirection == SortDirection.Descending
+            ? lvitems.OrderByDescending(f => f.Tag as FatFile, SorterMap[SortOrder])
+            : lvitems.OrderBy(f => f.Tag as FatFile, SorterMap[SortOrder]);
+
+        listViewFiles.Items.AddRange([.. sortedLvItems]);
+        labelStatus.Text = $@"{sortedLvItems.Count()}ファイル";
+    }
+
+    private async void ExtractAll_Click(object sender, EventArgs e)
+    {
+        if (ImageExtractor == null)
+        {
+            MessageBox.Show("イメージが開かれていません");
             return;
         }
 
+        var files = GetFiles();
         if (!files.Any())
         {
-            MessageBox.Show("ファイルがありません。");
+            MessageBox.Show("イメージにファイルがありません。");
             return;
         }
 
         var result = folderBrowserDialog1.ShowDialog(this);
         if (result == DialogResult.Cancel) return;
 
-        StartExtract(files);
+        try
+        {
+            await StartExtract([.. files]);
+        }
+        catch (Exception ex)
+        {
+            MessageBox.Show($"エラー: {ex.Message}");
+        }
     }
 
-    private void Extract_Click(object sender, EventArgs e)
+    private async void Extract_Click(object sender, EventArgs e)
     {
-        if (imageExtractor == null || imageExtractor.ImageFile.Length == 0)
+        if (ImageExtractor == null)
         {
-            MessageBox.Show(@"イメージファイルが選択されていません。");
+            MessageBox.Show("イメージが開かれていません");
             return;
         }
 
+        var files = GetFiles();
         if (!files.Any())
         {
-            MessageBox.Show("ファイルがありません。");
+            MessageBox.Show("イメージにファイルがありません。");
             return;
         }
 
-        List<FatFile> checkedFiles = [];
-        for (int i = 0; i < listViewFiles.CheckedItems.Count; i++)
-        {
-            if (listViewFiles.CheckedItems[i].Tag is FatFile f) checkedFiles.Add(f);
-        }
+        var checkedFiles = listViewFiles.CheckedItems
+            .Cast<ListViewItem>()
+            .Select(item => item.Tag as FatFile)
+            .Where(file => file != null)
+            .ToList();
 
         if (checkedFiles.Count == 0)
         {
@@ -135,119 +177,195 @@ public partial class FormDiskImageTool : Form
         var result = folderBrowserDialog1.ShowDialog(this);
         if (result == DialogResult.Cancel) return;
 
-        StartExtract(checkedFiles);
-    }
-
-    async void StartExtract(IEnumerable<FatFile> files)
-    {
-        cts = new CancellationTokenSource();
-
-        using var formProgress = new FormProgress();
-        formProgress.CancelClicked += () => cts?.Cancel();
-        formProgress.MaxCount = files.Count();
-        formProgress.Value = 0;
-        formProgress.Show(this);
-
         try
         {
-            extractTask = ExtractFiles(files, cts, formProgress);
-            (int sucess, int error) = await extractTask;
-
-            if (error == 0)
-            {
-                MessageBox.Show($"{sucess}個のファイルを抽出しました。");
-            }
-            else
-            {
-                MessageBox.Show($"{sucess}件のファイルを抽出し、{error}件のエラーがありました。");
-            }
+            await StartExtract(checkedFiles!);
         }
         catch (Exception ex)
         {
-            MessageBox.Show($"エラー: {ex}");
+            MessageBox.Show($"エラー: {ex.Message}");
         }
     }
 
-    private Task<(int, int)> ExtractFiles(IEnumerable<FatFile> files, CancellationTokenSource tokenSource, FormProgress? formProgress)
+    async Task StartExtract(List<FatFile> fileList)
     {
-        return Task.Run(() =>
+        if (ImageExtractor == null)
         {
-            int success = 0;
-            List<Exception> errors = [];
-            var totalBytes = files.Sum(f => f.Length);
-            uint nbytes = 0;
-
-            Action<Action> invokeIfNeeded = action =>
-            {
-                if (formProgress == null) return;
-
-                if (formProgress.InvokeRequired)
-                    formProgress.BeginInvoke(action);
-                else
-                    action();
-            };
-
-            if (formProgress != null)
-            {
-                invokeIfNeeded(() =>
-                {
-                    formProgress.Title = "ファイルを抽出しています";
-                });
-            }
-
-            foreach (var file in files)
-            {
-                if (tokenSource.IsCancellationRequested) break;
-
-                try
-                {
-                    if (formProgress != null)
-                    {
-                        invokeIfNeeded(() =>
-                        {
-                            formProgress.Value++;
-                            nbytes += file.Length;
-                            formProgress.Message = $"({formProgress.Value:N0} / {formProgress.MaxCount:N0}) ({nbytes:N0} / {totalBytes:N0} bytes)";
-                            formProgress.CurrentFile = $"{file.Name} ({file.Length:N0} bytes)";
-                        });
-                    }
-
-                    imageExtractor?.ExtractFile(file, folderBrowserDialog1.SelectedPath);
-                    success++;
-                }
-                catch (Exception ex)
-                {
-                    //throw;
-                    errors.Add(ex);
-                }
-            }
-
-            return (success, errors.Count);
-        }, tokenSource.Token);
-    }
-
-    private void FormDiskImageTool_FormClosing(object sender, FormClosingEventArgs e)
-    {
-        if (cts != null)
-        {
-            Debug.WriteLine("cancelling task"); cts?.Cancel();
+            throw new InvalidOperationException("イメージが開かれていません");
         }
 
-        if (extractTask != null)
+        try
         {
-            Debug.WriteLine("waiting task for stop"); extractTask?.Wait();
+            CancellationTokenSource = new CancellationTokenSource();
+
+            using var formProgress = CreateProgressForm(fileList.Count, () => CancellationTokenSource.Cancel());
+            formProgress.Show(this);
+
+            var extractorService = new FileExtractorService(ImageExtractor);
+            var extractTask = extractorService.ExtractFilesAsync(
+                fileList,
+                folderBrowserDialog1.SelectedPath,
+                CancellationTokenSource.Token,
+                formProgress.GetReporter());
+            ExtractTask = extractTask;
+            var result = await extractTask;
+
+            ShowExtractionResult(result);
+        }
+        catch (Exception ex)
+        {
+            // ユーザーには例外メッセージのみを表示する方が親切
+            MessageBox.Show($"エラー: {ex.Message}");
+        }
+        finally
+        {
+            CancellationTokenSource?.Dispose();
+            CancellationTokenSource = null;
+            ExtractTask = null;
+        }
+    }
+
+    private FormProgress CreateProgressForm(int MaxCount, Action cancelAction)
+    {
+        FormProgress formProgress = new()
+        {
+            MaxCount = MaxCount,
+            Value = 0,
+            Title = "ファイルを抽出しています",
+            Opacity = 0
+        };
+
+        formProgress.CancelClicked += cancelAction;
+
+        formProgress.Shown += (s, e) =>
+        {
+            formProgress.Left = this.Left + (this.Width - formProgress.Width) / 2;
+            formProgress.Top = this.Top + (this.Height - formProgress.Height) / 2;
+            formProgress.Opacity = 1;
+        };
+
+        return formProgress;
+    }
+
+    private static void ShowExtractionResult(ExtractReport result)
+    {
+        var canceledMessage = result.IsCanceled ? "キャンセルしました。" : "";
+        var successMessage = $"{result.SuccessCount}個のファイルを抽出しました。";
+        var errorMessage = result.ErrorCount > 0 ? $"{result.ErrorCount}件のエラーがありました。" : "";
+
+        var message = $"{canceledMessage}{successMessage}{errorMessage}";
+
+        MessageBox.Show(message);
+    }
+
+    private async void FormDiskImageTool_FormClosing(object sender, FormClosingEventArgs e)
+    {
+        if (ExtractTask != null)
+        {
+            var res = MessageBox.Show("ファイルを抽出中です。終了してよろしいですか?", "終了", MessageBoxButtons.OKCancel);
+            if (res == DialogResult.Cancel)
+            {
+                e.Cancel = true;
+                return;
+            }
+
+            if (CancellationTokenSource != null)
+            {
+                Debug.WriteLine("cancelling task");
+                CancellationTokenSource.Cancel();
+            }
+
+            // UIスレッドをブロックしないように非同期で待機
+            if (!ExtractTask.IsCompleted)
+            {
+                await ExtractTask;
+            }
         }
     }
 
     private void buttonFATInfo_Click(object sender, EventArgs e)
     {
-        if (imageExtractor?.FileSystem == null)
+        if (ImageExtractor?.FileSystem == null)
         {
             MessageBox.Show("イメージが開かれていません");
             return;
         }
 
-        FormFatInfo formInfo = new FormFatInfo(imageExtractor.FileSystem);
+        FormFatInfo formInfo = new FormFatInfo(ImageExtractor.FileSystem);
         formInfo.ShowDialog(this);
+    }
+
+    private void listViewFiles_ColumnClick(object sender, ColumnClickEventArgs e)
+    {
+        SortOrder = e.Column switch
+        {
+            1 => SortOrder.Size,//size
+            2 => SortOrder.Date,//date
+            _ => SortOrder.Name,//name
+        };
+
+        SortDirection = SortOrder != lastSortOrder
+            ? SortDirection.Ascending
+            : SortDirection == SortDirection.Descending ? SortDirection.Ascending : SortDirection.Descending;
+        SortColumn = e.Column;
+        lastSortOrder = SortOrder;
+
+        var files = GetFiles();
+        UpdateListView(files);
+    }
+
+    private void checkIsUTC_Click(object sender, EventArgs e)
+    {
+        if (ImageExtractor == null)
+        {
+            return;
+        }
+
+        if (ImageFile.Length == 0 || ImageFormat == ImageFormat.Unknown) return;
+
+        var files = GetFiles();
+        UpdateListView(files);
+    }
+
+    protected override void Dispose(bool disposing)
+    {
+        if (disposing && (components != null))
+        {
+            components.Dispose();
+        }
+
+        ImageExtractor?.Dispose();
+        base.Dispose(disposing);
+    }
+
+    const int TRIANGLE_SIZE = 8;
+    const int TRIANGLE_OFFSET = 10;
+
+    private void listViewFiles_DrawColumnHeader(object sender, DrawListViewColumnHeaderEventArgs e)
+    {
+        e.Graphics.FillRectangle(SystemBrushes.Control, e.Bounds);
+        e.DrawText(TextFormatFlags.WordEllipsis | TextFormatFlags.SingleLine | TextFormatFlags.VerticalCenter);
+        if (e.ColumnIndex == SortColumn)
+        {
+            DrawSortTriangle(e.Bounds, e.Graphics);
+        }
+    }
+
+    void DrawSortTriangle(Rectangle bounds, Graphics g)
+    {
+        var x = bounds.X + bounds.Width - TRIANGLE_OFFSET;
+        var y = bounds.Y + bounds.Height / 2;
+        var pts = new List<Point>
+            {
+                new Point(x, y + TRIANGLE_SIZE / 2 * (SortDirection == SortDirection.Ascending ? -1 : 1)),
+                new Point(x - TRIANGLE_SIZE / 2, y - TRIANGLE_SIZE / 2 * (SortDirection == SortDirection.Ascending ? -1 : 1)),
+                new Point(x + TRIANGLE_SIZE / 2, y - TRIANGLE_SIZE / 2 * (SortDirection == SortDirection.Ascending ? -1 : 1))
+            };
+        g.FillPolygon(SystemBrushes.ControlText, pts.ToArray());
+    }
+
+    private void listViewFiles_DrawItem(object sender, DrawListViewItemEventArgs e)
+    {
+        e.DrawDefault = true;
     }
 }

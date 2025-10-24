@@ -4,6 +4,8 @@ namespace DiskImageTool
     {
         public event Action? CancelClicked;
 
+        Progress<ExtractReport>? reporter; // = new Progress<ExtractReport>(Report);
+
         public FormProgress()
         {
             InitializeComponent();
@@ -46,7 +48,36 @@ namespace DiskImageTool
 
         private void buttonCancel_Click(object sender, EventArgs e)
         {
+            this.buttonCancel.Enabled = false;
             CancelClicked?.Invoke();
+        }
+
+        void Report(ExtractReport report)
+        {
+            if (this.IsDisposed) return;
+
+            if (report.SuccessCount.HasValue) this.Value = report.SuccessCount.Value;
+
+            if (report.SuccessCount.HasValue && report.TotalCount.HasValue && report.CompletedBytes.HasValue && report.TotalBytes.HasValue)
+            {
+                var cur = $"{report.SuccessCount.Value:N0}";
+                var total = $"{report.TotalCount.Value:N0}";
+                var compBytes = $"{report.CompletedBytes.Value:N0}";
+                var totalBytes = $"{report.TotalBytes.Value:N0}";
+                this.Message = $"({cur} / {total}) ({compBytes} / {totalBytes} bytes)";
+            }
+
+            if (report.CurrentFileName != null && report.CurrentFileLength.HasValue)
+            {
+                var curLen = $" ({report.CurrentFileLength:N0} bytes)";
+                this.CurrentFile = report.IsCanceled ? "キャンセルしています" : $"{report.CurrentFileName}{curLen}";
+            }
+        }
+
+        public Progress<ExtractReport> GetReporter()
+        {
+            reporter ??= new Progress<ExtractReport>(Report);
+            return reporter;
         }
     }
 }

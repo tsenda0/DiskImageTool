@@ -8,6 +8,7 @@ namespace DiskImageTool
         /// </summary>
         private System.ComponentModel.IContainer components = null;
 
+        /*
         /// <summary>
         ///  Clean up any resources being used.
         /// </summary>
@@ -18,8 +19,10 @@ namespace DiskImageTool
             {
                 components.Dispose();
             }
+            //ImageExtractor?.Dispose();
             base.Dispose(disposing);
         }
+        */
 
         #region Windows Form Designer generated code
 
@@ -34,7 +37,9 @@ namespace DiskImageTool
             labelFileName = new Label();
             panelTop = new Panel();
             panelFileName = new Panel();
+            panelSelectFile = new Panel();
             panelRight = new Panel();
+            checkIsUTC = new CheckBox();
             buttonFATInfo = new Button();
             buttonExtract = new Button();
             openFileDialog1 = new OpenFileDialog();
@@ -47,6 +52,7 @@ namespace DiskImageTool
             folderBrowserDialog1 = new FolderBrowserDialog();
             panelTop.SuspendLayout();
             panelFileName.SuspendLayout();
+            panelSelectFile.SuspendLayout();
             panelRight.SuspendLayout();
             panelFileList.SuspendLayout();
             SuspendLayout();
@@ -64,10 +70,10 @@ namespace DiskImageTool
             // 
             // buttonSelectFile
             // 
-            buttonSelectFile.Dock = DockStyle.Right;
-            buttonSelectFile.Location = new Point(400, 4);
+            buttonSelectFile.Dock = DockStyle.Fill;
+            buttonSelectFile.Location = new Point(4, 4);
             buttonSelectFile.Name = "buttonSelectFile";
-            buttonSelectFile.Size = new Size(100, 48);
+            buttonSelectFile.Size = new Size(104, 52);
             buttonSelectFile.TabIndex = 1;
             buttonSelectFile.Text = "イメージファイル\r\n選択...";
             buttonSelectFile.UseVisualStyleBackColor = true;
@@ -77,9 +83,9 @@ namespace DiskImageTool
             // 
             labelFileName.BorderStyle = BorderStyle.FixedSingle;
             labelFileName.Dock = DockStyle.Fill;
-            labelFileName.Location = new Point(4, 4);
+            labelFileName.Location = new Point(4, 8);
             labelFileName.Name = "labelFileName";
-            labelFileName.Size = new Size(388, 40);
+            labelFileName.Size = new Size(380, 44);
             labelFileName.TabIndex = 0;
             labelFileName.Text = "ファイルを選択してください";
             labelFileName.TextAlign = ContentAlignment.MiddleLeft;
@@ -87,38 +93,59 @@ namespace DiskImageTool
             // panelTop
             // 
             panelTop.Controls.Add(panelFileName);
-            panelTop.Controls.Add(buttonSelectFile);
+            panelTop.Controls.Add(panelSelectFile);
             panelTop.Dock = DockStyle.Top;
             panelTop.Location = new Point(0, 0);
             panelTop.Name = "panelTop";
-            panelTop.Padding = new Padding(4);
-            panelTop.Size = new Size(504, 56);
+            panelTop.Size = new Size(504, 60);
             panelTop.TabIndex = 0;
             // 
             // panelFileName
             // 
             panelFileName.Controls.Add(labelFileName);
             panelFileName.Dock = DockStyle.Fill;
-            panelFileName.Location = new Point(4, 4);
+            panelFileName.Location = new Point(0, 0);
             panelFileName.Name = "panelFileName";
-            panelFileName.Padding = new Padding(4);
-            panelFileName.Size = new Size(396, 48);
-            panelFileName.TabIndex = 0;
+            panelFileName.Padding = new Padding(4, 8, 4, 8);
+            panelFileName.Size = new Size(388, 60);
+            panelFileName.TabIndex = 1;
+            // 
+            // panelSelectFile
+            // 
+            panelSelectFile.Controls.Add(buttonSelectFile);
+            panelSelectFile.Dock = DockStyle.Right;
+            panelSelectFile.Location = new Point(388, 0);
+            panelSelectFile.Name = "panelSelectFile";
+            panelSelectFile.Padding = new Padding(4, 4, 8, 4);
+            panelSelectFile.Size = new Size(116, 60);
+            panelSelectFile.TabIndex = 0;
             // 
             // panelRight
             // 
+            panelRight.Controls.Add(checkIsUTC);
             panelRight.Controls.Add(buttonFATInfo);
             panelRight.Controls.Add(buttonExtract);
             panelRight.Controls.Add(buttonExtractAll);
             panelRight.Dock = DockStyle.Right;
-            panelRight.Location = new Point(388, 76);
+            panelRight.Location = new Point(388, 80);
             panelRight.Name = "panelRight";
-            panelRight.Size = new Size(116, 425);
+            panelRight.Size = new Size(116, 421);
             panelRight.TabIndex = 3;
+            // 
+            // checkIsUTC
+            // 
+            checkIsUTC.AutoSize = true;
+            checkIsUTC.Location = new Point(12, 140);
+            checkIsUTC.Name = "checkIsUTC";
+            checkIsUTC.Size = new Size(87, 38);
+            checkIsUTC.TabIndex = 3;
+            checkIsUTC.Text = "日付をUTC\r\nとして扱う";
+            checkIsUTC.UseVisualStyleBackColor = true;
+            checkIsUTC.Click += checkIsUTC_Click;
             // 
             // buttonFATInfo
             // 
-            buttonFATInfo.Location = new Point(4, 172);
+            buttonFATInfo.Location = new Point(4, 192);
             buttonFATInfo.Margin = new Padding(4, 5, 4, 5);
             buttonFATInfo.Name = "buttonFATInfo";
             buttonFATInfo.Size = new Size(104, 52);
@@ -145,7 +172,7 @@ namespace DiskImageTool
             // labelStatus
             // 
             labelStatus.Dock = DockStyle.Top;
-            labelStatus.Location = new Point(0, 56);
+            labelStatus.Location = new Point(0, 60);
             labelStatus.Name = "labelStatus";
             labelStatus.Size = new Size(504, 20);
             labelStatus.TabIndex = 1;
@@ -155,10 +182,10 @@ namespace DiskImageTool
             // 
             panelFileList.Controls.Add(listViewFiles);
             panelFileList.Dock = DockStyle.Fill;
-            panelFileList.Location = new Point(0, 76);
+            panelFileList.Location = new Point(0, 80);
             panelFileList.Name = "panelFileList";
             panelFileList.Padding = new Padding(4);
-            panelFileList.Size = new Size(388, 425);
+            panelFileList.Size = new Size(388, 421);
             panelFileList.TabIndex = 2;
             // 
             // listViewFiles
@@ -170,11 +197,15 @@ namespace DiskImageTool
             listViewFiles.GridLines = true;
             listViewFiles.Location = new Point(4, 4);
             listViewFiles.Name = "listViewFiles";
-            listViewFiles.Size = new Size(380, 417);
-            listViewFiles.Sorting = SortOrder.Ascending;
+            listViewFiles.OwnerDraw = true;
+            listViewFiles.ShowItemToolTips = true;
+            listViewFiles.Size = new Size(380, 413);
             listViewFiles.TabIndex = 0;
             listViewFiles.UseCompatibleStateImageBehavior = false;
             listViewFiles.View = View.Details;
+            listViewFiles.ColumnClick += listViewFiles_ColumnClick;
+            listViewFiles.DrawColumnHeader += listViewFiles_DrawColumnHeader;
+            listViewFiles.DrawItem += listViewFiles_DrawItem;
             // 
             // columnFileName
             // 
@@ -203,11 +234,13 @@ namespace DiskImageTool
             Controls.Add(panelTop);
             Font = new Font("Yu Gothic UI", 9.75F, FontStyle.Regular, GraphicsUnit.Point, 128);
             Name = "FormDiskImageTool";
-            Text = "Form1";
+            Text = "ディスクイメージ ファイル抽出";
             FormClosing += FormDiskImageTool_FormClosing;
             panelTop.ResumeLayout(false);
             panelFileName.ResumeLayout(false);
+            panelSelectFile.ResumeLayout(false);
             panelRight.ResumeLayout(false);
+            panelRight.PerformLayout();
             panelFileList.ResumeLayout(false);
             ResumeLayout(false);
         }
@@ -222,7 +255,7 @@ namespace DiskImageTool
         private Panel panelRight;
         private OpenFileDialog openFileDialog1;
         private Label labelStatus;
-        private Panel panelFileName;
+        private Panel panelSelectFile;
         private Panel panelFileList;
         private FolderBrowserDialog folderBrowserDialog1;
         private ListView listViewFiles;
@@ -230,5 +263,7 @@ namespace DiskImageTool
         private ColumnHeader columnSize;
         private ColumnHeader columnDate;
         private Button buttonFATInfo;
+        private CheckBox checkIsUTC;
+        private Panel panelFileName;
     }
 }
