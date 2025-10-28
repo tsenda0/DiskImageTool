@@ -36,7 +36,7 @@ public class DcuExtractor : IImageExtractor
     /// </summary>
     public FatFileSystem? FileSystem { get; private set; }
 
-    FatFile? RootDir = null;
+    ImageFile? RootDir = null;
 
     /// <summary>
     /// トラックマップを使用してイメージを再構築(未使用トラックの情報を反映する)
@@ -65,9 +65,6 @@ public class DcuExtractor : IImageExtractor
                     srcPos += trackSize;
                 }
                 destPos += trackSize;
-
-                //Debug.WriteLine($"CHS={cylinder}/{head} => track={track},srcPos={srcPos}, destPos={destPos}, logsec={logsec}");
-
                 track++;
             }
         }
@@ -82,7 +79,13 @@ public class DcuExtractor : IImageExtractor
     /// <returns></returns>
     public void OpenImage(string file)
     {
-        var dcuImage = readDCUImage(file);
+        using FileStream stream = new FileStream(file, FileMode.Open);
+        OpenImage(stream);
+    }
+
+    public void OpenImage(Stream stream)
+    {
+        var dcuImage = readDCUImage(stream);
         var newBuf = rebuildDCUImage(dcuImage);
 
         FileSystem?.Dispose();
@@ -93,7 +96,8 @@ public class DcuExtractor : IImageExtractor
     }
 
     bool lastUTCflag = false;
-    public FatFile? GetRoot(bool isUTC)
+
+    public ImageFile? GetRoot(bool isUTC)
     {
         if (RootDir == null || lastUTCflag != isUTC)
         {
@@ -109,9 +113,8 @@ public class DcuExtractor : IImageExtractor
     /// </summary>
     /// <param name="file"></param>
     /// <returns></returns>
-    private static byte[] readDCUImage(string file)
+    private static byte[] readDCUImage(Stream filestream)
     {
-        using var filestream = new FileStream(file, FileMode.Open, FileAccess.Read);
         var buffer = new byte[BUFSIZE];
 
         using var workMemStream = new MemoryStream();
@@ -122,8 +125,6 @@ public class DcuExtractor : IImageExtractor
             if (nread == 0) break;
 
             workMemStream.Write(buffer, 0, nread);
-
-            //Debug.WriteLine($"{file}: read {nread} bytes");
         } while (nread > 0);
 
         return workMemStream.ToArray();
@@ -135,7 +136,7 @@ public class DcuExtractor : IImageExtractor
     /// <param name="file"></param>
     /// <param name="path"></param>
     /// <exception cref="InvalidOperationException"></exception>
-    public void ExtractFile(FatFile file, string path)
+    public void ExtractFile(ImageFile file, string path)
     {
         if (FileSystem == null) throw new InvalidOperationException("DCUファイルが選択されていません");
 
@@ -155,8 +156,6 @@ public class DcuExtractor : IImageExtractor
                 outFile.Write(buffer, 0, nread);
                 remaining -= nread;
             }
-
-            //Debug.WriteLine($"{file}: read {nread} bytes");
         } while (remaining > 0);
 
         outFile.Close();

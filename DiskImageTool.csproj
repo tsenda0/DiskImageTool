@@ -12,4 +12,8 @@
         <Authors>Shonan Corp.</Authors>
     </PropertyGroup>
 
+    <ItemGroup>
+      <PackageReference Include="SevenZipExtractor" Version="1.0.19" />
+    </ItemGroup>
+
 </Project>

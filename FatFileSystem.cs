@@ -59,6 +59,7 @@ public class FatFileSystem : IDisposable
     /// bufferのReadOnlySpan表現
     /// </summary>
     private ReadOnlySpan<byte> BufferSpan => buffer;
+
     /// <summary>
     /// FATエントリのテーブル
     /// </summary>
@@ -79,15 +80,15 @@ public class FatFileSystem : IDisposable
 
     readonly Encoding SjisEncoding = Encoding.GetEncoding("shift_jis");
 
-    FatFile? rootDir;
+    ImageFile? rootDir;
 
     /// <summary>
     /// ルートディレクトリエントリ
     /// </summary>
-    public FatFile GetRoot(bool isUTC = false)
+    public ImageFile GetRoot(bool isUTC = false)
     {
-        List<FatFile> entries = ReadRootDir(isUTC);
-        rootDir = new FatFile("\\", entries);
+        List<ImageFile> entries = ReadRootDir(isUTC);
+        rootDir = new ImageFile("\\", entries);
         return rootDir;
     }
 
@@ -126,10 +127,10 @@ public class FatFileSystem : IDisposable
     /// ルートディレクトリのファイル一覧を取得
     /// </summary>
     /// <returns></returns>
-    private List<FatFile> ReadRootDir(bool isUTC = false)
+    private List<ImageFile> ReadRootDir(bool isUTC = false)
     {
         // Root directory
-        List<FatFile> entries = [];
+        List<ImageFile> entries = [];
         for (int i = 0; i < RootEntriesCount; i++)
         {
             var ent = GetFatDirEntry(i, isUTC);
@@ -164,13 +165,13 @@ public class FatFileSystem : IDisposable
     /// </summary>
     /// <param name="i"></param>
     /// <returns></returns>
-    FatFile? GetFatDirEntry(int i, bool isUTC = false)
+    ImageFile? GetFatDirEntry(int i, bool isUTC = false)
     {
         // FAT32の場合、ルートディレクトリの位置をBPBから読む必要がある。
         // このコードではルートディレクトリがクラスタチェーンにないFAT12/16を主に想定している。
         // この実装はFAT12/16のルートディレクトリに対しては正しい。
 
-        FatFile? ent = null;
+        ImageFile? ent = null;
 
         int RootDirOffset = ReservedSectorCount * BytesPerSector + FatSize16 * NumFats * BytesPerSector;
 
@@ -205,7 +206,7 @@ public class FatFileSystem : IDisposable
             // file size
             uint size = BitConverter.ToUInt32(entrySpan.Slice(DirEntryOffsetFileSize));
 
-            ent = new FatFile(filename, firstCluster, size, writeDateTime);
+            ent = new ImageFile(filename, firstCluster, size, writeDateTime);
         }
 
         return ent;
@@ -353,14 +354,14 @@ public class FatFileSystem : IDisposable
     /// </summary>
     /// <param name="file"></param>
     /// <returns></returns>
-    public Stream OpenFile(FatFile file)
+    public Stream OpenFile(ImageFile file)
     {
         // ファイルサイズに基づいてバッファを一度だけ確保する
         byte[] fileBuffer = new byte[file.Length];
         var fileSpan = fileBuffer.AsSpan();
         int bytesCopied = 0;
 
-        Debug.Write($"{file.Name}: {file.Length} bytes: scanning cluster: ");
+        //Debug.Write($"{file.Name}: {file.Length} bytes: scanning cluster: ");
 
         int datastart = (ReservedSectorCount + FatSize16 * NumFats) * BytesPerSector;
         datastart += DirEntrySize * RootEntriesCount;
@@ -378,7 +379,7 @@ public class FatFileSystem : IDisposable
         do
         {
             if (cluster == 0) break;
-            Debug.Write($"{cluster} => ");
+            //Debug.Write($"{cluster} => ");
 
             int sourceOffset = (int)(datastart + (cluster - 2) * ClusterSize);
             int bytesToCopy = Math.Min(ClusterSize, fileSpan.Length - bytesCopied);
@@ -388,7 +389,7 @@ public class FatFileSystem : IDisposable
             cluster = fat[(int)cluster];
         } while (cluster is > 0 && cluster < EMark && bytesCopied < file.Length);
 
-        Debug.WriteLine($"{(cluster >= EMark ? "END" : cluster)}");
+        //Debug.WriteLine($"{(cluster >= EMark ? "END" : cluster)}");
 
         return new MemoryStream(fileBuffer, 0, bytesCopied, false);
     }

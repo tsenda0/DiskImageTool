@@ -2,7 +2,10 @@ namespace DiskImageTool;
 
 public enum ImageFormat
 {
-    Unknown = 0, DCU = 1, Raw = 2
+    Unknown = 0,
+    DCU = 1,
+    Raw = 2,
+    LZH = 3,
 }
 
 public enum SortOrder

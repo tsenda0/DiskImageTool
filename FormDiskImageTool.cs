@@ -16,7 +16,7 @@ public partial class FormDiskImageTool : Form
     int SortColumn = 0;
     SortDirection SortDirection = SortDirection.Ascending;
 
-    readonly Dictionary<SortOrder, IComparer<FatFile?>> SorterMap = new() {
+    readonly Dictionary<SortOrder, IComparer<ImageFile?>> SorterMap = new() {
         { SortOrder.Unknown, new FileNameComparer() },
         { SortOrder.Name, new FileNameComparer() },
         { SortOrder.Size, new FileSizeComparer() },
@@ -39,7 +39,7 @@ public partial class FormDiskImageTool : Form
         openFileDialog1.CheckFileExists = true;
         openFileDialog1.Multiselect = false;
         openFileDialog1.CheckPathExists = true;
-        openFileDialog1.Filter = @"DCUイメージファイル(*.DCU)|*.DCU|RAWイメージファイル(*.IMG)|*.IMG|すべてのファイル(*.*)|*.*";
+        openFileDialog1.Filter = @"DCUイメージファイル(*.DCU)|*.DCU|RAWイメージファイル(*.IMG)|*.IMG|LZHアーカイブ(*.LZH)|*.LZH|すべてのファイル(*.*)|*.*";
         openFileDialog1.FilterIndex = 0;
         openFileDialog1.RestoreDirectory = true;
         openFileDialog1.FileName = "";
@@ -55,6 +55,7 @@ public partial class FormDiskImageTool : Form
         {
             1 => ImageFormat.DCU,
             2 => ImageFormat.Raw,
+            3 => ImageFormat.LZH,
             _ => ImageFormat.Raw, //Rawとして開く
         };
 
@@ -90,7 +91,7 @@ public partial class FormDiskImageTool : Form
         ImageExtractor.OpenImage(imageFile);
     }
 
-    private IEnumerable<FatFile> GetFiles()
+    private IEnumerable<ImageFile> GetFiles()
     {
         if (ImageExtractor == null)
         {
@@ -101,7 +102,7 @@ public partial class FormDiskImageTool : Form
         return root?.GetFiles() ?? [];
     }
 
-    void UpdateListView(IEnumerable<FatFile> files)
+    void UpdateListView(IEnumerable<ImageFile> files)
     {
         var fileList = files.ToList();
         listViewFiles.Items.Clear();
@@ -116,8 +117,8 @@ public partial class FormDiskImageTool : Form
         });
 
         var sortedLvItems = SortDirection == SortDirection.Descending
-            ? lvitems.OrderByDescending(f => f.Tag as FatFile, SorterMap[SortOrder])
-            : lvitems.OrderBy(f => f.Tag as FatFile, SorterMap[SortOrder]);
+            ? lvitems.OrderByDescending(f => f.Tag as ImageFile, SorterMap[SortOrder])
+            : lvitems.OrderBy(f => f.Tag as ImageFile, SorterMap[SortOrder]);
 
         listViewFiles.Items.AddRange([.. sortedLvItems]);
         labelStatus.Text = $@"{sortedLvItems.Count()}ファイル";
@@ -143,7 +144,16 @@ public partial class FormDiskImageTool : Form
 
         try
         {
-            await StartExtract([.. files]);
+            var res = await StartExtract([.. files]);
+            if (res != null)
+            {
+                ShowExtractionResult(res);
+            }
+            else
+            {
+                MessageBox.Show($"エラーが発生しました");
+            }
+
         }
         catch (Exception ex)
         {
@@ -168,7 +178,7 @@ public partial class FormDiskImageTool : Form
 
         var checkedFiles = listViewFiles.CheckedItems
             .Cast<ListViewItem>()
-            .Select(item => item.Tag as FatFile)
+            .Select(item => item.Tag as ImageFile)
             .Where(file => file != null)
             .ToList();
 
@@ -183,7 +193,15 @@ public partial class FormDiskImageTool : Form
 
         try
         {
-            await StartExtract(checkedFiles!);
+            var res = await StartExtract(checkedFiles!);
+            if (res != null)
+            {
+                ShowExtractionResult(res);
+            }
+            else
+            {
+                MessageBox.Show($"エラーが発生しました");
+            }
         }
         catch (Exception ex)
         {
@@ -191,7 +209,7 @@ public partial class FormDiskImageTool : Form
         }
     }
 
-    async Task StartExtract(List<FatFile> fileList)
+    async Task<ExtractReport?> StartExtract(List<ImageFile> fileList)
     {
         if (ImageExtractor == null)
         {
@@ -214,12 +232,14 @@ public partial class FormDiskImageTool : Form
             ExtractTask = extractTask;
             var result = await extractTask;
 
-            ShowExtractionResult(result);
+            //ShowExtractionResult(result);
+            return result;
         }
-        catch (Exception ex)
+        catch (Exception)
         {
             // ユーザーには例外メッセージのみを表示する方が親切
-            MessageBox.Show($"エラー: {ex.Message}");
+            //MessageBox.Show($"エラー: {ex.Message}");
+            return null;
         }
         finally
         {
@@ -303,9 +323,9 @@ public partial class FormDiskImageTool : Form
     {
         SortOrder = e.Column switch
         {
-            1 => SortOrder.Size,//size
-            2 => SortOrder.Date,//date
-            _ => SortOrder.Name,//name
+            1 => SortOrder.Size, //size
+            2 => SortOrder.Date, //date
+            _ => SortOrder.Name, //name
         };
 
         SortDirection = SortOrder != lastSortOrder

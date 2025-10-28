@@ -12,7 +12,7 @@ public class RawExtractor : IImageExtractor
     /// </summary>
     public FatFileSystem? FileSystem { get; private set; }
 
-    public void ExtractFile(FatFile file, string path)
+    public void ExtractFile(ImageFile file, string path)
     {
         if (FileSystem == null) throw new InvalidOperationException("DCUファイルが選択されていません");
 
@@ -40,9 +40,8 @@ public class RawExtractor : IImageExtractor
         File.SetLastWriteTime(filename, file.WriteDateTime);
     }
 
-    static byte[] readRawImage(string file)
+    static byte[] readRawImage(Stream filestream)
     {
-        using var filestream = new FileStream(file, FileMode.Open, FileAccess.Read);
         var buffer = new byte[BUFSIZE];
 
         using var workMemStream = new MemoryStream();
@@ -60,15 +59,21 @@ public class RawExtractor : IImageExtractor
         return workMemStream.ToArray();
     }
 
-    public void OpenImage(string file)
+    public void OpenImage(Stream stream)
     {
-        var image = readRawImage(file);
+        var image = readRawImage(stream);
         FileSystem?.Dispose();
 
         FileSystem = new(image);
     }
 
-    public FatFile? GetRoot(bool isUTC = false)
+    public void OpenImage(string file)
+    {
+        using Stream stream = new FileStream(file, FileMode.Open);
+        OpenImage(stream);
+    }
+
+    public ImageFile? GetRoot(bool isUTC = false)
     {
         return FileSystem?.GetRoot(isUTC);
     }

@@ -7,7 +7,7 @@ public class FileExtractorService(IImageExtractor imageExtractor)
 {
     private readonly IImageExtractor _imageExtractor = imageExtractor;
 
-    public Task<ExtractReport> ExtractFilesAsync(List<FatFile> files, string destinationPath, CancellationToken token, IProgress<ExtractReport> progress)
+    public Task<ExtractReport> ExtractFilesAsync(List<ImageFile> files, string destinationPath, CancellationToken token, IProgress<ExtractReport> progress)
     {
         return Task.Run(() =>
         {

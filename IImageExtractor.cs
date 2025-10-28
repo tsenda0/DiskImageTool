@@ -5,9 +5,10 @@ public interface IImageExtractor : IDisposable
 {
     FatFileSystem? FileSystem { get; }
 
-    void ExtractFile(FatFile file, string path);
+    void ExtractFile(ImageFile file, string path);
 
     void OpenImage(string file);
+    void OpenImage(Stream stream);
 
-    FatFile? GetRoot(bool isUTC);
+    ImageFile? GetRoot(bool isUTC);
 }
