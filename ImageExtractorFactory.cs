@@ -11,8 +11,8 @@ public class ImageExtractorFactory : IImageExtractorFactory
         {
             ImageFormat.DCU => new DcuExtractor(),
             ImageFormat.Raw => new RawExtractor(),
-            ImageFormat.Unknown => throw new NotSupportedException($"Unsupported image format: {format}"),
-            _ => throw new NotSupportedException($"Unsupported image format: {format}")
+            ImageFormat.Unknown => throw new InvalidOperationException("フォーマットが不明です"),
+            _ => throw new InvalidOperationException("フォーマットが不明です"),
         };
     }
 }

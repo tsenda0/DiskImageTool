@@ -39,7 +39,7 @@ public partial class FormDiskImageTool : Form
         openFileDialog1.CheckFileExists = true;
         openFileDialog1.Multiselect = false;
         openFileDialog1.CheckPathExists = true;
-        openFileDialog1.Filter = @"DCUイメージファイル(*.DCU)|*.DCU|rawイメージファイル(*.IMG)|*.IMG|すべてのファイル(*.*)|*.*";
+        openFileDialog1.Filter = @"DCUイメージファイル(*.DCU)|*.DCU|RAWイメージファイル(*.IMG)|*.IMG|すべてのファイル(*.*)|*.*";
         openFileDialog1.FilterIndex = 0;
         openFileDialog1.RestoreDirectory = true;
         openFileDialog1.FileName = "";
@@ -55,10 +55,13 @@ public partial class FormDiskImageTool : Form
         {
             1 => ImageFormat.DCU,
             2 => ImageFormat.Raw,
-            _ => ImageFormat.Unknown,
+            _ => ImageFormat.Raw, //Rawとして開く
         };
 
-        if (ImageFile.Length == 0 || ImageFormat == ImageFormat.Unknown) return;
+        if (ImageFile.Length == 0)
+        {
+            return;
+        }
 
         if (ImageFormat == ImageFormat.DCU) checkIsUTC.Checked = false;
 
@@ -345,7 +348,11 @@ public partial class FormDiskImageTool : Form
     private void listViewFiles_DrawColumnHeader(object sender, DrawListViewColumnHeaderEventArgs e)
     {
         e.Graphics.FillRectangle(SystemBrushes.Control, e.Bounds);
-        e.DrawText(TextFormatFlags.WordEllipsis | TextFormatFlags.SingleLine | TextFormatFlags.VerticalCenter);
+        e.DrawText(
+            TextFormatFlags.WordEllipsis
+            | TextFormatFlags.SingleLine
+            | TextFormatFlags.VerticalCenter
+            | TextFormatFlags.HorizontalCenter);
         if (e.ColumnIndex == SortColumn)
         {
             DrawSortTriangle(e.Bounds, e.Graphics);
@@ -373,13 +380,13 @@ public partial class FormDiskImageTool : Form
     private void buttonVersionInfo_Click(object sender, EventArgs e)
     {
         var tok = Application.ProductVersion.Split("+");
-        string ver = tok.Length > 1
+        var ver = tok.Length > 1
             ? $"Version: {tok[0]} / Commit: {tok[1][..8]}"
             : Application.ProductVersion;
 
         MessageBox.Show(
             $"{Application.ProductName}\n"
             + $"{ver}\n"
-            + $"{Application.CompanyName}");
+            + $"2025-10 {Application.CompanyName}");
     }
 }

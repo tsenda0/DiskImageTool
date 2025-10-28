@@ -135,7 +135,7 @@ namespace DiskImageTool
             // 
             // buttonVersionInfo
             // 
-            buttonVersionInfo.Location = new Point(4, 260);
+            buttonVersionInfo.Location = new Point(4, 276);
             buttonVersionInfo.Name = "buttonVersionInfo";
             buttonVersionInfo.Size = new Size(104, 52);
             buttonVersionInfo.TabIndex = 4;
@@ -146,7 +146,7 @@ namespace DiskImageTool
             // checkIsUTC
             // 
             checkIsUTC.AutoSize = true;
-            checkIsUTC.Location = new Point(12, 140);
+            checkIsUTC.Location = new Point(12, 128);
             checkIsUTC.Name = "checkIsUTC";
             checkIsUTC.Size = new Size(87, 38);
             checkIsUTC.TabIndex = 2;
@@ -156,7 +156,7 @@ namespace DiskImageTool
             // 
             // buttonFATInfo
             // 
-            buttonFATInfo.Location = new Point(4, 192);
+            buttonFATInfo.Location = new Point(4, 208);
             buttonFATInfo.Name = "buttonFATInfo";
             buttonFATInfo.Size = new Size(104, 52);
             buttonFATInfo.TabIndex = 3;
@@ -230,7 +230,7 @@ namespace DiskImageTool
             // columnDate
             // 
             columnDate.Text = "日付";
-            columnDate.Width = 150;
+            columnDate.Width = 140;
             // 
             // FormDiskImageTool
             // 

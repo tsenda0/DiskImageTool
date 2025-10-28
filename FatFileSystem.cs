@@ -4,7 +4,9 @@ using System.Text;
 namespace DiskImageTool;
 
 /// <summary>
-/// FATファイルシステムの操作
+/// FATファイルシステムの操作。
+/// FAT12/16フォーマットのみ対応。
+/// 扱えるのはルートディレクトリのファイルのみ。
 /// </summary>
 public class FatFileSystem : IDisposable
 {
@@ -51,10 +53,6 @@ public class FatFileSystem : IDisposable
     /// <summary>
     /// 読み込まれたファイルシステムのイメージ
     /// </summary>
-    /// <remarks>
-    /// List&lt;byte&gt; から byte[] に変更。
-    /// GetRange()によるコピーを避けるため、Span&lt;T&gt; を使用してアクセスする。
-    /// </remarks>
     readonly byte[] buffer;
 
     /// <summary>
