@@ -1,4 +1,5 @@
 using System.Diagnostics;
+using System.Reflection;
 
 namespace DiskImageTool;
 
@@ -367,5 +368,18 @@ public partial class FormDiskImageTool : Form
     private void listViewFiles_DrawItem(object sender, DrawListViewItemEventArgs e)
     {
         e.DrawDefault = true;
+    }
+
+    private void buttonVersionInfo_Click(object sender, EventArgs e)
+    {
+        var tok = Application.ProductVersion.Split("+");
+        string ver = tok.Length > 1
+            ? $"Version: {tok[0]} / Commit: {tok[1][..8]}"
+            : Application.ProductVersion;
+
+        MessageBox.Show(
+            $"{Application.ProductName}\n"
+            + $"{ver}\n"
+            + $"{Application.CompanyName}");
     }
 }

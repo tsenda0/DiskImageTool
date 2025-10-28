@@ -39,6 +39,7 @@ namespace DiskImageTool
             panelFileName = new Panel();
             panelSelectFile = new Panel();
             panelRight = new Panel();
+            buttonVersionInfo = new Button();
             checkIsUTC = new CheckBox();
             buttonFATInfo = new Button();
             buttonExtract = new Button();
@@ -60,7 +61,6 @@ namespace DiskImageTool
             // buttonExtractAll
             // 
             buttonExtractAll.Location = new Point(4, 8);
-            buttonExtractAll.Margin = new Padding(4, 5, 4, 5);
             buttonExtractAll.Name = "buttonExtractAll";
             buttonExtractAll.Size = new Size(104, 52);
             buttonExtractAll.TabIndex = 0;
@@ -74,7 +74,7 @@ namespace DiskImageTool
             buttonSelectFile.Location = new Point(4, 4);
             buttonSelectFile.Name = "buttonSelectFile";
             buttonSelectFile.Size = new Size(104, 52);
-            buttonSelectFile.TabIndex = 1;
+            buttonSelectFile.TabIndex = 0;
             buttonSelectFile.Text = "イメージファイル\r\n選択...";
             buttonSelectFile.UseVisualStyleBackColor = true;
             buttonSelectFile.Click += OpenImageFile_Click;
@@ -108,7 +108,7 @@ namespace DiskImageTool
             panelFileName.Name = "panelFileName";
             panelFileName.Padding = new Padding(4, 8, 4, 8);
             panelFileName.Size = new Size(388, 60);
-            panelFileName.TabIndex = 1;
+            panelFileName.TabIndex = 0;
             // 
             // panelSelectFile
             // 
@@ -118,10 +118,11 @@ namespace DiskImageTool
             panelSelectFile.Name = "panelSelectFile";
             panelSelectFile.Padding = new Padding(4, 4, 8, 4);
             panelSelectFile.Size = new Size(116, 60);
-            panelSelectFile.TabIndex = 0;
+            panelSelectFile.TabIndex = 1;
             // 
             // panelRight
             // 
+            panelRight.Controls.Add(buttonVersionInfo);
             panelRight.Controls.Add(checkIsUTC);
             panelRight.Controls.Add(buttonFATInfo);
             panelRight.Controls.Add(buttonExtract);
@@ -132,13 +133,23 @@ namespace DiskImageTool
             panelRight.Size = new Size(116, 421);
             panelRight.TabIndex = 3;
             // 
+            // buttonVersionInfo
+            // 
+            buttonVersionInfo.Location = new Point(4, 260);
+            buttonVersionInfo.Name = "buttonVersionInfo";
+            buttonVersionInfo.Size = new Size(104, 52);
+            buttonVersionInfo.TabIndex = 4;
+            buttonVersionInfo.Text = "バージョン情報...";
+            buttonVersionInfo.UseVisualStyleBackColor = true;
+            buttonVersionInfo.Click += buttonVersionInfo_Click;
+            // 
             // checkIsUTC
             // 
             checkIsUTC.AutoSize = true;
             checkIsUTC.Location = new Point(12, 140);
             checkIsUTC.Name = "checkIsUTC";
             checkIsUTC.Size = new Size(87, 38);
-            checkIsUTC.TabIndex = 3;
+            checkIsUTC.TabIndex = 2;
             checkIsUTC.Text = "日付をUTC\r\nとして扱う";
             checkIsUTC.UseVisualStyleBackColor = true;
             checkIsUTC.Click += checkIsUTC_Click;
@@ -146,10 +157,9 @@ namespace DiskImageTool
             // buttonFATInfo
             // 
             buttonFATInfo.Location = new Point(4, 192);
-            buttonFATInfo.Margin = new Padding(4, 5, 4, 5);
             buttonFATInfo.Name = "buttonFATInfo";
             buttonFATInfo.Size = new Size(104, 52);
-            buttonFATInfo.TabIndex = 2;
+            buttonFATInfo.TabIndex = 3;
             buttonFATInfo.Text = "FAT詳細...";
             buttonFATInfo.UseVisualStyleBackColor = true;
             buttonFATInfo.Click += buttonFATInfo_Click;
@@ -157,7 +167,6 @@ namespace DiskImageTool
             // buttonExtract
             // 
             buttonExtract.Location = new Point(4, 64);
-            buttonExtract.Margin = new Padding(4, 5, 4, 5);
             buttonExtract.Name = "buttonExtract";
             buttonExtract.Size = new Size(104, 52);
             buttonExtract.TabIndex = 1;
@@ -265,5 +274,6 @@ namespace DiskImageTool
         private Button buttonFATInfo;
         private CheckBox checkIsUTC;
         private Panel panelFileName;
+        private Button buttonVersionInfo;
     }
 }
