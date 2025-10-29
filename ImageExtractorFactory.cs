@@ -11,7 +11,7 @@ public class ImageExtractorFactory : IImageExtractorFactory
         {
             ImageFormat.DCU => new DcuExtractor(),
             ImageFormat.Raw => new RawExtractor(),
-            ImageFormat.LZH => new LzhExtractor(),
+            ImageFormat.LZH => new LzhDcuExtractor(),
             ImageFormat.Unknown => throw new InvalidOperationException("フォーマットが不明です"),
             _ => throw new InvalidOperationException("フォーマットが不明です"),
         };

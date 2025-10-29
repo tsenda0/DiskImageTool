@@ -59,18 +59,20 @@ public class RawExtractor : IImageExtractor
         return workMemStream.ToArray();
     }
 
-    public void OpenImage(Stream stream)
+    public bool OpenImage(Stream stream)
     {
         var image = readRawImage(stream);
         FileSystem?.Dispose();
 
         FileSystem = new(image);
+
+        return true;
     }
 
-    public void OpenImage(string file)
+    public bool OpenImage(string file)
     {
-        using Stream stream = new FileStream(file, FileMode.Open);
-        OpenImage(stream);
+        using var stream = new FileStream(file, FileMode.Open);
+        return OpenImage(stream);
     }
 
     public ImageFile? GetRoot(bool isUTC = false)

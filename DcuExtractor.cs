@@ -77,13 +77,13 @@ public class DcuExtractor : IImageExtractor
     /// </summary>
     /// <param name="file"></param>
     /// <returns></returns>
-    public void OpenImage(string file)
+    public bool OpenImage(string file)
     {
-        using FileStream stream = new FileStream(file, FileMode.Open);
-        OpenImage(stream);
+        using var stream = new FileStream(file, FileMode.Open);
+        return OpenImage(stream);
     }
 
-    public void OpenImage(Stream stream)
+    public bool OpenImage(Stream stream)
     {
         var dcuImage = readDCUImage(stream);
         var newBuf = rebuildDCUImage(dcuImage);
@@ -93,6 +93,8 @@ public class DcuExtractor : IImageExtractor
         lastUTCflag = false;
 
         FileSystem = new(newBuf);
+
+        return true;
     }
 
     bool lastUTCflag = false;

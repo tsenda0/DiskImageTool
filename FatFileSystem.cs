@@ -1,4 +1,3 @@
-using System.Diagnostics;
 using System.Text;
 
 namespace DiskImageTool;
@@ -49,6 +48,7 @@ public class FatFileSystem : IDisposable
     private const int DirEntryOffsetFirstClusterLow = 26;
     private const int DirEntryOffsetFileSize = 28;
     #endregion
+    private const int DirEntryNameLength = 11;
 
     /// <summary>
     /// 読み込まれたファイルシステムのイメージ
@@ -103,7 +103,7 @@ public class FatFileSystem : IDisposable
     /// <param name="image"></param>
     public FatFileSystem(byte[] image)
     {
-        buffer = image;
+        buffer = [.. image];
         Initialize();
     }
 
@@ -179,32 +179,32 @@ public class FatFileSystem : IDisposable
         var entrySpan = BufferSpan.Slice(entryOffset, DirEntrySize);
 
         // file name
-        var nameSpan = entrySpan.Slice(DirEntryOffsetName, 11);
+        var nameSpan = entrySpan[DirEntryOffsetName..DirEntryNameLength]; // 0, DirEntryNameLength
         var atr = entrySpan[DirEntryOffsetAttribute];
 
         if (nameSpan[0] != 0 && nameSpan[0] != DEL_MARK
             && ((atr & ATR_DIR) == 0) && ((atr & ATR_LFN) != ATR_LFN))
         {
             // ファイル名をSJIS文字として解釈
-            var basename = SjisEncoding.GetString(nameSpan.Slice(0, 8)).TrimEnd();
+            var basename = SjisEncoding.GetString(nameSpan[..8]).TrimEnd();
             var ext = SjisEncoding.GetString(nameSpan.Slice(8, 3)).TrimEnd();
             var filename = (ext.Length > 0) ? string.Concat(basename, ".", ext) : basename;
 
             // write date/time
-            ushort time = BitConverter.ToUInt16(entrySpan.Slice(DirEntryOffsetTime));
-            ushort date = BitConverter.ToUInt16(entrySpan.Slice(DirEntryOffsetDate));
+            ushort time = BitConverter.ToUInt16(entrySpan[DirEntryOffsetTime..]);
+            ushort date = BitConverter.ToUInt16(entrySpan[DirEntryOffsetDate..]);
 
             DateTime writeDateTime = GetFatDateTime(time, date, isUTC);
 
             // start cluster
             // 上位16bit。FAT32で有効。FAT12/16では使われない
-            uint firstH = BitConverter.ToUInt16(entrySpan.Slice(DirEntryOffsetFirstClusterHigh));
+            uint firstH = BitConverter.ToUInt16(entrySpan[DirEntryOffsetFirstClusterHigh..]);
             // 下位16bit
-            uint firstL = BitConverter.ToUInt16(entrySpan.Slice(DirEntryOffsetFirstClusterLow));
+            uint firstL = BitConverter.ToUInt16(entrySpan[DirEntryOffsetFirstClusterLow..]);
             uint firstCluster = (firstH << 16) | firstL;
 
             // file size
-            uint size = BitConverter.ToUInt32(entrySpan.Slice(DirEntryOffsetFileSize));
+            uint size = BitConverter.ToUInt32(entrySpan[DirEntryOffsetFileSize..]);
 
             ent = new ImageFile(filename, firstCluster, size, writeDateTime);
         }
@@ -313,7 +313,7 @@ public class FatFileSystem : IDisposable
         // Span<T> を使って安全に読み込む
         var bpbSpan = BufferSpan;
 
-        BytesPerSector = BitConverter.ToUInt16(bpbSpan.Slice(BpbOffsetBytesPerSector));
+        BytesPerSector = BitConverter.ToUInt16(bpbSpan[BpbOffsetBytesPerSector..]);
         if (BytesPerSector is not 512 and not 1024 and not 2048 and not 4096)
             throw new InvalidOperationException("セクタサイズが不正です");
 
@@ -321,21 +321,21 @@ public class FatFileSystem : IDisposable
         SectorsPerCluster = bpbSpan[BpbOffsetSectorsPerCluster];
 
         // 14(2) reserved sector count
-        ReservedSectorCount = BitConverter.ToUInt16(bpbSpan.Slice(BpbOffsetReservedSectorCount));
+        ReservedSectorCount = BitConverter.ToUInt16(bpbSpan[BpbOffsetReservedSectorCount..]);
 
         // 16(1) number of FATs
         NumFats = bpbSpan[BpbOffsetNumFats];
 
         // 17(2) root entries count
-        RootEntriesCount = BitConverter.ToUInt16(bpbSpan.Slice(BpbOffsetRootEntriesCount));
+        RootEntriesCount = BitConverter.ToUInt16(bpbSpan[BpbOffsetRootEntriesCount..]);
 
         // 19(2) total sectors
-        TotalSector16 = BitConverter.ToUInt16(bpbSpan.Slice(BpbOffsetTotalSector16));
+        TotalSector16 = BitConverter.ToUInt16(bpbSpan[BpbOffsetTotalSector16..]);
 
         // 22(2) FAT size(number of sector)
-        FatSize16 = BitConverter.ToUInt16(bpbSpan.Slice(BpbOffsetFatSize16));
+        FatSize16 = BitConverter.ToUInt16(bpbSpan[BpbOffsetFatSize16..]);
 
-        TotalSector32 = BitConverter.ToUInt32(bpbSpan.Slice(BpbOffsetTotalSector32));
+        TotalSector32 = BitConverter.ToUInt32(bpbSpan[BpbOffsetTotalSector32..]);
 
         // FAT種別の推定
         int rootDirSector = ReservedSectorCount + FatSize16 * NumFats;
@@ -383,7 +383,7 @@ public class FatFileSystem : IDisposable
 
             int sourceOffset = (int)(datastart + (cluster - 2) * ClusterSize);
             int bytesToCopy = Math.Min(ClusterSize, fileSpan.Length - bytesCopied);
-            BufferSpan.Slice(sourceOffset, bytesToCopy).CopyTo(fileSpan.Slice(bytesCopied));
+            BufferSpan.Slice(sourceOffset, bytesToCopy).CopyTo(fileSpan[bytesCopied..]);
             bytesCopied += bytesToCopy;
 
             cluster = fat[(int)cluster];

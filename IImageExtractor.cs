@@ -7,8 +7,8 @@ public interface IImageExtractor : IDisposable
 
     void ExtractFile(ImageFile file, string path);
 
-    void OpenImage(string file);
-    void OpenImage(Stream stream);
+    bool OpenImage(string file);
+    bool OpenImage(Stream stream);
 
     ImageFile? GetRoot(bool isUTC);
 }

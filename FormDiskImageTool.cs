@@ -1,5 +1,4 @@
 using System.Diagnostics;
-using System.Reflection;
 
 namespace DiskImageTool;
 
@@ -64,31 +63,28 @@ public partial class FormDiskImageTool : Form
             return;
         }
 
-        if (ImageFormat == ImageFormat.DCU) checkIsUTC.Checked = false;
+        if (ImageFormat is ImageFormat.DCU or ImageFormat.LZH) checkIsUTC.Checked = false;
 
         labelFileName.Text = "";
         listViewFiles.Items.Clear();
         try
         {
-            OpenImageFile(ImageFile, ImageFormat);
+            ImageExtractor?.Dispose(); // 既存のExtractorを破棄
 
-            labelFileName.Text = ImageFile;
+            ImageExtractor = _imageExtractorFactory.Create(ImageFormat);
+            if (ImageExtractor.OpenImage(ImageFile))
+            {
 
-            var files = GetFiles();
-            UpdateListView(files);
+                labelFileName.Text = ImageFile;
+
+                var files = GetFiles();
+                UpdateListView(files);
+            }
         }
         catch (Exception ex)
         {
             MessageBox.Show($"エラー: {ex.Message}");
         }
-    }
-
-    private void OpenImageFile(string imageFile, ImageFormat format)
-    {
-        ImageExtractor?.Dispose(); // 既存のExtractorを破棄
-
-        ImageExtractor = _imageExtractorFactory.Create(format);
-        ImageExtractor.OpenImage(imageFile);
     }
 
     private IEnumerable<ImageFile> GetFiles()
@@ -295,13 +291,14 @@ public partial class FormDiskImageTool : Form
 
             if (CancellationTokenSource != null)
             {
-                Debug.WriteLine("cancelling task");
+                Debug.WriteLine("\ncancelling task");
                 CancellationTokenSource.Cancel();
             }
 
             // UIスレッドをブロックしないように非同期で待機
-            if (!ExtractTask.IsCompleted)
+            if (ExtractTask != null && !ExtractTask.IsCompleted)
             {
+                Debug.WriteLine("\nawaiting task");
                 await ExtractTask;
             }
         }
