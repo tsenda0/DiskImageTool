@@ -29,12 +29,12 @@ public class LzhDcuExtractor : IImageExtractor
         GC.SuppressFinalize(this);
     }
 
-    public void ExtractFile(ImageFile file, string path)
+    public void ExtractFile(FatFileEntry file, string path)
     {
         subExtractor?.ExtractFile(file, path);
     }
 
-    public ImageFile? GetRoot(bool isUTC)
+    public FatFileEntry? GetRoot(bool isUTC)
     {
         return subExtractor?.GetRoot(isUTC);
     }

@@ -1,8 +1,8 @@
 namespace DiskImageTool;
 
-public class ImageFile : IDisposable
+public class FatFileEntry : IDisposable
 {
-    readonly IEnumerable<ImageFile>? subEntries;
+    readonly IEnumerable<FatFileEntry>? subEntries;
 
     public string Name { get; }
 
@@ -12,7 +12,7 @@ public class ImageFile : IDisposable
 
     public DateTime WriteDateTime { get; }
 
-    public ImageFile(string name, uint firstCluster, uint size, DateTime writeDateTime)
+    public FatFileEntry(string name, uint firstCluster, uint size, DateTime writeDateTime)
     {
         this.Name = name;
         this.Length = size;
@@ -20,14 +20,14 @@ public class ImageFile : IDisposable
         WriteDateTime = writeDateTime;
     }
 
-    public ImageFile(string name, IEnumerable<ImageFile> subEntries)
+    public FatFileEntry(string name, IEnumerable<FatFileEntry> subEntries)
     {
         this.Name = name;
         this.subEntries = subEntries;
         this.Length = 0;
     }
 
-    public IEnumerable<ImageFile> GetFiles()
+    public IEnumerable<FatFileEntry> GetFiles()
     {
         return subEntries ?? throw new InvalidOperationException("not a directory");
     }

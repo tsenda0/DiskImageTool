@@ -15,7 +15,7 @@ public partial class FormDiskImageTool : Form
     int SortColumn = 0;
     SortDirection SortDirection = SortDirection.Ascending;
 
-    readonly Dictionary<SortOrder, IComparer<ImageFile?>> SorterMap = new() {
+    readonly Dictionary<SortOrder, IComparer<FatFileEntry?>> SorterMap = new() {
         { SortOrder.Unknown, new FileNameComparer() },
         { SortOrder.Name, new FileNameComparer() },
         { SortOrder.Size, new FileSizeComparer() },
@@ -66,6 +66,7 @@ public partial class FormDiskImageTool : Form
         if (ImageFormat is ImageFormat.DCU or ImageFormat.LZH) checkIsUTC.Checked = false;
 
         labelFileName.Text = "";
+        labelStatus.Text = "";
         listViewFiles.Items.Clear();
         try
         {
@@ -87,7 +88,7 @@ public partial class FormDiskImageTool : Form
         }
     }
 
-    private IEnumerable<ImageFile> GetFiles()
+    private IEnumerable<FatFileEntry> GetFiles()
     {
         if (ImageExtractor == null)
         {
@@ -98,7 +99,7 @@ public partial class FormDiskImageTool : Form
         return root?.GetFiles() ?? [];
     }
 
-    void UpdateListView(IEnumerable<ImageFile> files)
+    void UpdateListView(IEnumerable<FatFileEntry> files)
     {
         var fileList = files.ToList();
         listViewFiles.Items.Clear();
@@ -113,8 +114,8 @@ public partial class FormDiskImageTool : Form
         });
 
         var sortedLvItems = SortDirection == SortDirection.Descending
-            ? lvitems.OrderByDescending(f => f.Tag as ImageFile, SorterMap[SortOrder])
-            : lvitems.OrderBy(f => f.Tag as ImageFile, SorterMap[SortOrder]);
+            ? lvitems.OrderByDescending(f => f.Tag as FatFileEntry, SorterMap[SortOrder])
+            : lvitems.OrderBy(f => f.Tag as FatFileEntry, SorterMap[SortOrder]);
 
         listViewFiles.Items.AddRange([.. sortedLvItems]);
         labelStatus.Text = $@"{sortedLvItems.Count()}ファイル";
@@ -174,7 +175,7 @@ public partial class FormDiskImageTool : Form
 
         var checkedFiles = listViewFiles.CheckedItems
             .Cast<ListViewItem>()
-            .Select(item => item.Tag as ImageFile)
+            .Select(item => item.Tag as FatFileEntry)
             .Where(file => file != null)
             .ToList();
 
@@ -205,7 +206,7 @@ public partial class FormDiskImageTool : Form
         }
     }
 
-    async Task<ExtractReport?> StartExtract(List<ImageFile> fileList)
+    async Task<ExtractReport?> StartExtract(List<FatFileEntry> fileList)
     {
         if (ImageExtractor == null)
         {

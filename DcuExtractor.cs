@@ -36,7 +36,7 @@ public class DcuExtractor : IImageExtractor
     /// </summary>
     public FatFileSystem? FileSystem { get; private set; }
 
-    ImageFile? RootDir = null;
+    FatFileEntry? RootDir = null;
 
     /// <summary>
     /// トラックマップを使用してイメージを再構築(未使用トラックの情報を反映する)
@@ -99,7 +99,7 @@ public class DcuExtractor : IImageExtractor
 
     bool lastUTCflag = false;
 
-    public ImageFile? GetRoot(bool isUTC)
+    public FatFileEntry? GetRoot(bool isUTC)
     {
         if (RootDir == null || lastUTCflag != isUTC)
         {
@@ -138,7 +138,7 @@ public class DcuExtractor : IImageExtractor
     /// <param name="file"></param>
     /// <param name="path"></param>
     /// <exception cref="InvalidOperationException"></exception>
-    public void ExtractFile(ImageFile file, string path)
+    public void ExtractFile(FatFileEntry file, string path)
     {
         if (FileSystem == null) throw new InvalidOperationException("DCUファイルが選択されていません");
 

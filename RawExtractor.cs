@@ -12,7 +12,7 @@ public class RawExtractor : IImageExtractor
     /// </summary>
     public FatFileSystem? FileSystem { get; private set; }
 
-    public void ExtractFile(ImageFile file, string path)
+    public void ExtractFile(FatFileEntry file, string path)
     {
         if (FileSystem == null) throw new InvalidOperationException("DCUファイルが選択されていません");
 
@@ -75,7 +75,7 @@ public class RawExtractor : IImageExtractor
         return OpenImage(stream);
     }
 
-    public ImageFile? GetRoot(bool isUTC = false)
+    public FatFileEntry? GetRoot(bool isUTC = false)
     {
         return FileSystem?.GetRoot(isUTC);
     }

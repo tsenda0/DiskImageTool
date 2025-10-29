@@ -80,15 +80,15 @@ public class FatFileSystem : IDisposable
 
     readonly Encoding SjisEncoding = Encoding.GetEncoding("shift_jis");
 
-    ImageFile? rootDir;
+    FatFileEntry? rootDir;
 
     /// <summary>
     /// ルートディレクトリエントリ
     /// </summary>
-    public ImageFile GetRoot(bool isUTC = false)
+    public FatFileEntry GetRoot(bool isUTC = false)
     {
-        List<ImageFile> entries = ReadRootDir(isUTC);
-        rootDir = new ImageFile("\\", entries);
+        List<FatFileEntry> entries = ReadRootDir(isUTC);
+        rootDir = new FatFileEntry("\\", entries);
         return rootDir;
     }
 
@@ -127,10 +127,10 @@ public class FatFileSystem : IDisposable
     /// ルートディレクトリのファイル一覧を取得
     /// </summary>
     /// <returns></returns>
-    private List<ImageFile> ReadRootDir(bool isUTC = false)
+    private List<FatFileEntry> ReadRootDir(bool isUTC = false)
     {
         // Root directory
-        List<ImageFile> entries = [];
+        List<FatFileEntry> entries = [];
         for (int i = 0; i < RootEntriesCount; i++)
         {
             var ent = GetFatDirEntry(i, isUTC);
@@ -165,13 +165,13 @@ public class FatFileSystem : IDisposable
     /// </summary>
     /// <param name="i"></param>
     /// <returns></returns>
-    ImageFile? GetFatDirEntry(int i, bool isUTC = false)
+    FatFileEntry? GetFatDirEntry(int i, bool isUTC = false)
     {
         // FAT32の場合、ルートディレクトリの位置をBPBから読む必要がある。
         // このコードではルートディレクトリがクラスタチェーンにないFAT12/16を主に想定している。
         // この実装はFAT12/16のルートディレクトリに対しては正しい。
 
-        ImageFile? ent = null;
+        FatFileEntry? ent = null;
 
         int RootDirOffset = ReservedSectorCount * BytesPerSector + FatSize16 * NumFats * BytesPerSector;
 
@@ -206,7 +206,7 @@ public class FatFileSystem : IDisposable
             // file size
             uint size = BitConverter.ToUInt32(entrySpan[DirEntryOffsetFileSize..]);
 
-            ent = new ImageFile(filename, firstCluster, size, writeDateTime);
+            ent = new FatFileEntry(filename, firstCluster, size, writeDateTime);
         }
 
         return ent;
@@ -354,7 +354,7 @@ public class FatFileSystem : IDisposable
     /// </summary>
     /// <param name="file"></param>
     /// <returns></returns>
-    public Stream OpenFile(ImageFile file)
+    public Stream OpenFile(FatFileEntry file)
     {
         // ファイルサイズに基づいてバッファを一度だけ確保する
         byte[] fileBuffer = new byte[file.Length];
