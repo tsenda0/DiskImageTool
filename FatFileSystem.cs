@@ -30,6 +30,7 @@ public class FatFileSystem : IDisposable
 
     #region BPB/DirEntry Offsets
     // BPB (BIOS Parameter Block) Offsets
+    private const int BpbOffsetOEMName = 3;
     private const int BpbOffsetBytesPerSector = 11;
     private const int BpbOffsetSectorsPerCluster = 13;
     private const int BpbOffsetReservedSectorCount = 14;
@@ -38,6 +39,13 @@ public class FatFileSystem : IDisposable
     private const int BpbOffsetTotalSector16 = 19;
     private const int BpbOffsetFatSize16 = 22;
     private const int BpbOffsetTotalSector32 = 32;
+    private const int BpbOffsetVolID = 39;
+    private const int BpbOffsetVolLabel = 43;
+    private const int BpbOffsetFSType = 54;
+
+    private const int BpbFSTypeLength = 8;
+    private const int BpbVolLabelLength = 11;
+    private const int BpbOEMNameLength = 8;
 
     // Directory Entry Offsets
     private const int DirEntryOffsetName = 0;
@@ -47,8 +55,8 @@ public class FatFileSystem : IDisposable
     private const int DirEntryOffsetDate = 24;
     private const int DirEntryOffsetFirstClusterLow = 26;
     private const int DirEntryOffsetFileSize = 28;
-    #endregion
     private const int DirEntryNameLength = 11;
+    #endregion
 
     /// <summary>
     /// 読み込まれたファイルシステムのイメージ
@@ -66,6 +74,7 @@ public class FatFileSystem : IDisposable
     readonly List<uint> fat = [];
 
     public FatType FatType { get; private set; }
+    public string OEMName { get; private set; } = "";
     public int BytesPerSector { get; private set; }
     public int SectorsPerCluster { get; private set; }
     public int ReservedSectorCount { get; private set; }
@@ -74,9 +83,13 @@ public class FatFileSystem : IDisposable
     public uint TotalSector32 { get; private set; }
     public int FatSize16 { get; private set; }
     public int RootEntriesCount { get; private set; }
-    public int ImageSizeBytes => buffer.Length;
+    public int ImageSizeBytes => BufferSpan.Length; //buffer.Length;
     public int ClusterSize => BytesPerSector * SectorsPerCluster;
     public int FatSizeBytes => FatSize16 * BytesPerSector;
+
+    public uint VolumeID { get; private set; }
+    public string VolumeLabel { get; private set; } = "";
+    public string FileSystemType { get; private set; } = "";
 
     readonly Encoding SjisEncoding = Encoding.GetEncoding("shift_jis");
 
@@ -313,6 +326,8 @@ public class FatFileSystem : IDisposable
         // Span<T> を使って安全に読み込む
         var bpbSpan = BufferSpan;
 
+        OEMName = Encoding.ASCII.GetString(bpbSpan[BpbOffsetOEMName..(BpbOffsetOEMName + BpbOEMNameLength)]);
+
         BytesPerSector = BitConverter.ToUInt16(bpbSpan[BpbOffsetBytesPerSector..]);
         if (BytesPerSector is not 512 and not 1024 and not 2048 and not 4096)
             throw new InvalidOperationException("セクタサイズが不正です");
@@ -336,6 +351,10 @@ public class FatFileSystem : IDisposable
         FatSize16 = BitConverter.ToUInt16(bpbSpan[BpbOffsetFatSize16..]);
 
         TotalSector32 = BitConverter.ToUInt32(bpbSpan[BpbOffsetTotalSector32..]);
+
+        VolumeID = BitConverter.ToUInt32(bpbSpan[BpbOffsetVolID..]);
+        VolumeLabel = SjisEncoding.GetString(bpbSpan[BpbOffsetVolLabel..(BpbOffsetVolLabel + BpbVolLabelLength)]);
+        FileSystemType = Encoding.ASCII.GetString(bpbSpan[BpbOffsetFSType..(BpbOffsetFSType + BpbFSTypeLength)]);
 
         // FAT種別の推定
         int rootDirSector = ReservedSectorCount + FatSize16 * NumFats;
@@ -401,7 +420,7 @@ public class FatFileSystem : IDisposable
     /// <returns></returns>
     public Stream OpenFile(string path)
     {
-        if (buffer.Length == 0 || rootDir == null) throw new InvalidOperationException("FATイメージが開かれていません");
+        if (BufferSpan.Length == 0 || rootDir == null) throw new InvalidOperationException("FATイメージが開かれていません");
 
         var ent = rootDir.GetFiles().FirstOrDefault(f => f.Name == path)
             ?? throw new InvalidOperationException($"ファイル '{path}' がありません");
