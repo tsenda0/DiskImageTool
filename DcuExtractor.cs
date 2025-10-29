@@ -36,7 +36,7 @@ public class DcuExtractor : IImageExtractor
     /// </summary>
     public FatFileSystem? FileSystem { get; private set; }
 
-    FatFileEntry? RootDir = null;
+    FatFileEntry? rootDir;
 
     /// <summary>
     /// トラックマップを使用してイメージを再構築(未使用トラックの情報を反映する)
@@ -89,7 +89,7 @@ public class DcuExtractor : IImageExtractor
         var newBuf = rebuildDCUImage(dcuImage);
 
         FileSystem?.Dispose();
-        RootDir = null;
+        rootDir = null;
         lastUTCflag = false;
 
         FileSystem = new(newBuf);
@@ -97,17 +97,17 @@ public class DcuExtractor : IImageExtractor
         return true;
     }
 
-    bool lastUTCflag = false;
+    bool lastUTCflag;
 
     public FatFileEntry? GetRoot(bool isUTC)
     {
-        if (RootDir == null || lastUTCflag != isUTC)
+        if (rootDir == null || lastUTCflag != isUTC)
         {
-            RootDir = FileSystem?.GetRoot(isUTC);
+            rootDir = FileSystem?.GetRoot(isUTC);
             lastUTCflag = isUTC;
         }
 
-        return RootDir;
+        return rootDir;
     }
 
     /// <summary>

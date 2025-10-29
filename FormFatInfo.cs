@@ -5,7 +5,7 @@ namespace DiskImageTool
         public FormFatInfo(FatFileSystem fat)
         {
             InitializeComponent();
-            this.propertyGrid1.SelectedObject = fat;
+            propertyGrid1.SelectedObject = fat;
         }
     }
 }

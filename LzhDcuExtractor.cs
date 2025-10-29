@@ -6,7 +6,7 @@ namespace DiskImageTool;
 public class LzhDcuExtractor : IImageExtractor
 {
     DcuExtractor? subExtractor;
-    string? TempFile;
+    string? tempFile;
 
     public FatFileSystem? FileSystem => subExtractor?.FileSystem;
 
@@ -16,14 +16,14 @@ public class LzhDcuExtractor : IImageExtractor
 
         try
         {
-            if (File.Exists(TempFile))
+            if (File.Exists(tempFile))
             {
-                File.Delete(TempFile);
+                File.Delete(tempFile);
             }
         }
         catch (Exception)
         {
-            Debug.WriteLine($"can not delete {TempFile}");
+            Debug.WriteLine($"can not delete {tempFile}");
         }
 
         GC.SuppressFinalize(this);
@@ -57,7 +57,7 @@ public class LzhDcuExtractor : IImageExtractor
         if (filterdFiles.Count() == 1)
         {
             var ent = filterdFiles.First();
-            return OpenImageInArchive(ent);
+            return openImageInArchive(ent);
         }
 
         using var form = new ArchiveImageSelectForm();
@@ -72,16 +72,16 @@ public class LzhDcuExtractor : IImageExtractor
 
         var image = filterdFiles.First(f => f.FileName == selfile);
 
-        return OpenImageInArchive(image);
+        return openImageInArchive(image);
     }
 
-    bool OpenImageInArchive(Entry entry)
+    bool openImageInArchive(Entry entry)
     {
-        TempFile = Path.GetTempFileName();
-        entry.Extract(TempFile);
+        tempFile = Path.GetTempFileName();
+        entry.Extract(tempFile);
 
         subExtractor = new DcuExtractor();
-        return subExtractor.OpenImage(TempFile);
+        return subExtractor.OpenImage(tempFile);
     }
 
     public bool OpenImage(string file)

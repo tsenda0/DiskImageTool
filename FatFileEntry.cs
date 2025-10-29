@@ -14,17 +14,17 @@ public class FatFileEntry : IDisposable
 
     public FatFileEntry(string name, uint firstCluster, uint size, DateTime writeDateTime)
     {
-        this.Name = name;
-        this.Length = size;
-        this.FirstCluster = firstCluster;
+        Name = name;
+        Length = size;
+        FirstCluster = firstCluster;
         WriteDateTime = writeDateTime;
     }
 
     public FatFileEntry(string name, IEnumerable<FatFileEntry> subEntries)
     {
-        this.Name = name;
+        Name = name;
         this.subEntries = subEntries;
-        this.Length = 0;
+        Length = 0;
     }
 
     public IEnumerable<FatFileEntry> GetFiles()

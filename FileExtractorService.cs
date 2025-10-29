@@ -5,7 +5,7 @@ namespace DiskImageTool;
 /// </summary>
 public class FileExtractorService(IImageExtractor imageExtractor)
 {
-    private readonly IImageExtractor _imageExtractor = imageExtractor;
+    private readonly IImageExtractor imageExtractor = imageExtractor;
 
     public Task<ExtractReport> ExtractFilesAsync(List<FatFileEntry> files, string destinationPath, CancellationToken token, IProgress<ExtractReport> progress)
     {
@@ -35,7 +35,7 @@ public class FileExtractorService(IImageExtractor imageExtractor)
                     report.CurrentFileLength = file.Length;
                     progress.Report(report);
 
-                    _imageExtractor.ExtractFile(file, destinationPath);
+                    imageExtractor.ExtractFile(file, destinationPath);
 
                     // 成功後に加算
                     report.SuccessCount++;

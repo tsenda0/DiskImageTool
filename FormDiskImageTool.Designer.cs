@@ -66,7 +66,7 @@ namespace DiskImageTool
             buttonExtractAll.TabIndex = 0;
             buttonExtractAll.Text = "全抽出";
             buttonExtractAll.UseVisualStyleBackColor = true;
-            buttonExtractAll.Click += ExtractAll_Click;
+            buttonExtractAll.Click += extractAll_Click;
             // 
             // buttonSelectFile
             // 
@@ -77,7 +77,7 @@ namespace DiskImageTool
             buttonSelectFile.TabIndex = 0;
             buttonSelectFile.Text = "イメージファイル\r\n選択...";
             buttonSelectFile.UseVisualStyleBackColor = true;
-            buttonSelectFile.Click += OpenImageFile_Click;
+            buttonSelectFile.Click += openImageFile_Click;
             // 
             // labelFileName
             // 
@@ -172,7 +172,7 @@ namespace DiskImageTool
             buttonExtract.TabIndex = 1;
             buttonExtract.Text = "選択ファイルを\r\n抽出";
             buttonExtract.UseVisualStyleBackColor = true;
-            buttonExtract.Click += Extract_Click;
+            buttonExtract.Click += extract_Click;
             // 
             // openFileDialog1
             // 
@@ -244,7 +244,7 @@ namespace DiskImageTool
             Font = new Font("Yu Gothic UI", 9.75F, FontStyle.Regular, GraphicsUnit.Point, 128);
             Name = "FormDiskImageTool";
             Text = "ディスクイメージ ファイル抽出";
-            FormClosing += FormDiskImageTool_FormClosing;
+            FormClosing += formDiskImageTool_FormClosing;
             panelTop.ResumeLayout(false);
             panelFileName.ResumeLayout(false);
             panelSelectFile.ResumeLayout(false);

@@ -55,6 +55,7 @@ public class FatFileSystem : IDisposable
     private const int DirEntryOffsetDate = 24;
     private const int DirEntryOffsetFirstClusterLow = 26;
     private const int DirEntryOffsetFileSize = 28;
+
     private const int DirEntryNameLength = 11;
     #endregion
 
@@ -66,7 +67,7 @@ public class FatFileSystem : IDisposable
     /// <summary>
     /// bufferのReadOnlySpan表現
     /// </summary>
-    private ReadOnlySpan<byte> BufferSpan => buffer;
+    private ReadOnlySpan<byte> bufferSpan => buffer;
 
     /// <summary>
     /// FATエントリのテーブル
@@ -83,7 +84,7 @@ public class FatFileSystem : IDisposable
     public uint TotalSector32 { get; private set; }
     public int FatSize16 { get; private set; }
     public int RootEntriesCount { get; private set; }
-    public int ImageSizeBytes => BufferSpan.Length; //buffer.Length;
+    public int ImageSizeBytes => bufferSpan.Length;
     public int ClusterSize => BytesPerSector * SectorsPerCluster;
     public int FatSizeBytes => FatSize16 * BytesPerSector;
 
@@ -91,7 +92,7 @@ public class FatFileSystem : IDisposable
     public string VolumeLabel { get; private set; } = "";
     public string FileSystemType { get; private set; } = "";
 
-    readonly Encoding SjisEncoding = Encoding.GetEncoding("shift_jis");
+    readonly Encoding sjisEncoding = Encoding.GetEncoding("shift_jis");
 
     FatFileEntry? rootDir;
 
@@ -100,7 +101,7 @@ public class FatFileSystem : IDisposable
     /// </summary>
     public FatFileEntry GetRoot(bool isUTC = false)
     {
-        List<FatFileEntry> entries = ReadRootDir(isUTC);
+        List<FatFileEntry> entries = readRootDir(isUTC);
         rootDir = new FatFileEntry("\\", entries);
         return rootDir;
     }
@@ -117,7 +118,7 @@ public class FatFileSystem : IDisposable
     public FatFileSystem(byte[] image)
     {
         buffer = [.. image];
-        Initialize();
+        initialize();
     }
 
     /// <summary>
@@ -126,27 +127,27 @@ public class FatFileSystem : IDisposable
     /// <param name="stream"></param>
     public FatFileSystem(Stream stream)
     {
-        buffer = ReadImage(stream);
-        Initialize();
+        buffer = readImage(stream);
+        initialize();
     }
 
-    private void Initialize()
+    private void initialize()
     {
-        ReadBPB();
-        ReadFAT(FatType);
+        readBPB();
+        readFAT(FatType);
     }
 
     /// <summary>
     /// ルートディレクトリのファイル一覧を取得
     /// </summary>
     /// <returns></returns>
-    private List<FatFileEntry> ReadRootDir(bool isUTC = false)
+    private List<FatFileEntry> readRootDir(bool isUTC = false)
     {
         // Root directory
         List<FatFileEntry> entries = [];
         for (int i = 0; i < RootEntriesCount; i++)
         {
-            var ent = GetFatDirEntry(i, isUTC);
+            var ent = getFatDirEntry(i, isUTC);
             if (ent != null) entries.Add(ent);
         }
 
@@ -159,7 +160,7 @@ public class FatFileSystem : IDisposable
     /// <param name="time"></param>
     /// <param name="date"></param>
     /// <returns></returns>
-    private static DateTime GetFatDateTime(ushort time, ushort date, bool isUTC = false)
+    private static DateTime getFatDateTime(ushort time, ushort date, bool isUTC = false)
     {
         int year = FAT_EPOCH_YEAR + (date >> 9);
         int month = (date & 0x1e0) >> 5;
@@ -178,7 +179,7 @@ public class FatFileSystem : IDisposable
     /// </summary>
     /// <param name="i"></param>
     /// <returns></returns>
-    FatFileEntry? GetFatDirEntry(int i, bool isUTC = false)
+    FatFileEntry? getFatDirEntry(int i, bool isUTC = false)
     {
         // FAT32の場合、ルートディレクトリの位置をBPBから読む必要がある。
         // このコードではルートディレクトリがクラスタチェーンにないFAT12/16を主に想定している。
@@ -189,25 +190,25 @@ public class FatFileSystem : IDisposable
         int RootDirOffset = ReservedSectorCount * BytesPerSector + FatSize16 * NumFats * BytesPerSector;
 
         int entryOffset = RootDirOffset + i * DirEntrySize;
-        var entrySpan = BufferSpan.Slice(entryOffset, DirEntrySize);
+        var entrySpan = bufferSpan.Slice(entryOffset, DirEntrySize);
 
         // file name
         var nameSpan = entrySpan[DirEntryOffsetName..DirEntryNameLength]; // 0, DirEntryNameLength
         var atr = entrySpan[DirEntryOffsetAttribute];
 
         if (nameSpan[0] != 0 && nameSpan[0] != DEL_MARK
-            && ((atr & ATR_DIR) == 0) && ((atr & ATR_LFN) != ATR_LFN))
+            && (atr & ATR_DIR) == 0 && (atr & ATR_LFN) != ATR_LFN)
         {
             // ファイル名をSJIS文字として解釈
-            var basename = SjisEncoding.GetString(nameSpan[..8]).TrimEnd();
-            var ext = SjisEncoding.GetString(nameSpan.Slice(8, 3)).TrimEnd();
+            var basename = sjisEncoding.GetString(nameSpan[..8]).TrimEnd();
+            var ext = sjisEncoding.GetString(nameSpan.Slice(8, 3)).TrimEnd();
             var filename = (ext.Length > 0) ? string.Concat(basename, ".", ext) : basename;
 
             // write date/time
             ushort time = BitConverter.ToUInt16(entrySpan[DirEntryOffsetTime..]);
             ushort date = BitConverter.ToUInt16(entrySpan[DirEntryOffsetDate..]);
 
-            DateTime writeDateTime = GetFatDateTime(time, date, isUTC);
+            DateTime writeDateTime = getFatDateTime(time, date, isUTC);
 
             // start cluster
             // 上位16bit。FAT32で有効。FAT12/16では使われない
@@ -229,29 +230,32 @@ public class FatFileSystem : IDisposable
     /// FATの読み込み
     /// </summary>
     /// <returns></returns>
-    private void ReadFAT(FatType fatType)
+    private void readFAT(FatType fatType)
     {
         //FATの読み込み
         switch (fatType)
         {
             case FatType.FAT12:
-                ReadFAT12();
+                readFAT12();
                 break;
             case FatType.FAT16:
-                ReadFAT16();
+                readFAT16();
                 break;
             case FatType.FAT32:
-                ReadFAT32();
+                readFAT32();
                 break;
+            case FatType.Unknown:
+            default:
+                throw new ArgumentException("FATタイプが不明です");
         }
     }
 
-    void ReadFAT12()
+    void readFAT12()
     {
         fat.Clear();
 
         int pos = ReservedSectorCount * BytesPerSector;
-        var fatSpan = BufferSpan.Slice(pos, FatSize16 * BytesPerSector); // 1番目のFATのみ読む
+        var fatSpan = bufferSpan.Slice(pos, FatSize16 * BytesPerSector); // 1番目のFATのみ読む
 
         pos = 0;
         do
@@ -270,12 +274,12 @@ public class FatFileSystem : IDisposable
         } while (pos < fatSpan.Length - 2); // 3バイトずつ読むので境界チェックを調整
     }
 
-    void ReadFAT16()
+    void readFAT16()
     {
         fat.Clear();
 
         int pos = ReservedSectorCount * BytesPerSector;
-        var fatSpan = BufferSpan.Slice(pos, FatSize16 * BytesPerSector);
+        var fatSpan = bufferSpan.Slice(pos, FatSize16 * BytesPerSector);
 
         for (pos = 0; pos < fatSpan.Length; pos += 2)
         {
@@ -285,12 +289,12 @@ public class FatFileSystem : IDisposable
         }
     }
 
-    void ReadFAT32()
+    void readFAT32()
     {
         fat.Clear();
 
         int pos = ReservedSectorCount * BytesPerSector;
-        var fatSpan = BufferSpan.Slice(pos, FatSize16 * BytesPerSector);
+        var fatSpan = bufferSpan.Slice(pos, FatSize16 * BytesPerSector);
 
         for (pos = 0; pos < fatSpan.Length; pos += 4)
         {
@@ -305,7 +309,7 @@ public class FatFileSystem : IDisposable
     /// </summary>
     /// <param name="stream"></param>
     /// <returns>読み込んだイメージのバイト配列</returns>
-    private static byte[] ReadImage(Stream stream)
+    private static byte[] readImage(Stream stream)
     {
         if (stream is MemoryStream ms)
         {
@@ -321,10 +325,10 @@ public class FatFileSystem : IDisposable
     /// FATのBIOS Parameter Blockの読み込み
     /// </summary>
     /// <exception cref="InvalidOperationException"></exception>
-    private void ReadBPB()
+    private void readBPB()
     {
         // Span<T> を使って安全に読み込む
-        var bpbSpan = BufferSpan;
+        var bpbSpan = bufferSpan;
 
         OEMName = Encoding.ASCII.GetString(bpbSpan[BpbOffsetOEMName..(BpbOffsetOEMName + BpbOEMNameLength)]);
 
@@ -353,7 +357,7 @@ public class FatFileSystem : IDisposable
         TotalSector32 = BitConverter.ToUInt32(bpbSpan[BpbOffsetTotalSector32..]);
 
         VolumeID = BitConverter.ToUInt32(bpbSpan[BpbOffsetVolID..]);
-        VolumeLabel = SjisEncoding.GetString(bpbSpan[BpbOffsetVolLabel..(BpbOffsetVolLabel + BpbVolLabelLength)]);
+        VolumeLabel = sjisEncoding.GetString(bpbSpan[BpbOffsetVolLabel..(BpbOffsetVolLabel + BpbVolLabelLength)]);
         FileSystemType = Encoding.ASCII.GetString(bpbSpan[BpbOffsetFSType..(BpbOffsetFSType + BpbFSTypeLength)]);
 
         // FAT種別の推定
@@ -402,7 +406,7 @@ public class FatFileSystem : IDisposable
 
             int sourceOffset = (int)(datastart + (cluster - 2) * ClusterSize);
             int bytesToCopy = Math.Min(ClusterSize, fileSpan.Length - bytesCopied);
-            BufferSpan.Slice(sourceOffset, bytesToCopy).CopyTo(fileSpan[bytesCopied..]);
+            bufferSpan.Slice(sourceOffset, bytesToCopy).CopyTo(fileSpan[bytesCopied..]);
             bytesCopied += bytesToCopy;
 
             cluster = fat[(int)cluster];
@@ -420,7 +424,7 @@ public class FatFileSystem : IDisposable
     /// <returns></returns>
     public Stream OpenFile(string path)
     {
-        if (BufferSpan.Length == 0 || rootDir == null) throw new InvalidOperationException("FATイメージが開かれていません");
+        if (bufferSpan.Length == 0 || rootDir == null) throw new InvalidOperationException("FATイメージが開かれていません");
 
         var ent = rootDir.GetFiles().FirstOrDefault(f => f.Name == path)
             ?? throw new InvalidOperationException($"ファイル '{path}' がありません");
