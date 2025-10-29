@@ -7,7 +7,7 @@ namespace DiskImageTool;
 /// FAT12/16フォーマットのみ対応。
 /// 扱えるのはルートディレクトリのファイルのみ。
 /// </summary>
-public class FatFileSystem : IDisposable
+public class FatFileSystem : IFileSystem
 {
     /// <summary>
     /// FATファイル日時の開始年
@@ -62,7 +62,7 @@ public class FatFileSystem : IDisposable
     /// <summary>
     /// 読み込まれたファイルシステムのイメージ
     /// </summary>
-    readonly byte[] buffer;
+    readonly byte[]? buffer;
 
     /// <summary>
     /// bufferのReadOnlySpan表現
@@ -99,7 +99,7 @@ public class FatFileSystem : IDisposable
     /// <summary>
     /// ルートディレクトリエントリ
     /// </summary>
-    public FatFileEntry GetRoot(bool isUTC = false)
+    public IFileEntry GetRoot(bool isUTC = false)
     {
         List<FatFileEntry> entries = readRootDir(isUTC);
         rootDir = new FatFileEntry("\\", entries);
@@ -111,23 +111,11 @@ public class FatFileSystem : IDisposable
         Encoding.RegisterProvider(CodePagesEncodingProvider.Instance);
     }
 
-    /// <summary>
-    /// FATイメージを操作する
-    /// </summary>
-    /// <param name="image"></param>
-    public FatFileSystem(byte[] image)
+    public FatFileSystem(IImageReader reader)
     {
-        buffer = [.. image];
-        initialize();
-    }
+        //buffer = new byte[1024 * 1440];
+        buffer = reader.GetBuffer();
 
-    /// <summary>
-    /// FATイメージを操作する
-    /// </summary>
-    /// <param name="stream"></param>
-    public FatFileSystem(Stream stream)
-    {
-        buffer = readImage(stream);
         initialize();
     }
 
@@ -305,23 +293,6 @@ public class FatFileSystem : IDisposable
     }
 
     /// <summary>
-    /// ファイルシステムイメージの読み込み
-    /// </summary>
-    /// <param name="stream"></param>
-    /// <returns>読み込んだイメージのバイト配列</returns>
-    private static byte[] readImage(Stream stream)
-    {
-        if (stream is MemoryStream ms)
-        {
-            return ms.ToArray();
-        }
-
-        using var memoryStream = new MemoryStream();
-        stream.CopyTo(memoryStream);
-        return memoryStream.ToArray();
-    }
-
-    /// <summary>
     /// FATのBIOS Parameter Blockの読み込み
     /// </summary>
     /// <exception cref="InvalidOperationException"></exception>
@@ -377,10 +348,13 @@ public class FatFileSystem : IDisposable
     /// </summary>
     /// <param name="file"></param>
     /// <returns></returns>
-    public Stream OpenFile(FatFileEntry file)
+    public Stream OpenFile(IFileEntry file)
     {
+        if (file is not FatFileEntry fatEntry)
+            throw new InvalidOperationException("異なるファイルシステムのファイルです");
+
         // ファイルサイズに基づいてバッファを一度だけ確保する
-        byte[] fileBuffer = new byte[file.Length];
+        byte[] fileBuffer = new byte[fatEntry.Length];
         var fileSpan = fileBuffer.AsSpan();
         int bytesCopied = 0;
 
@@ -398,7 +372,7 @@ public class FatFileSystem : IDisposable
             _ => throw new InvalidOperationException("FAT種別が不明です"),
         };
 
-        uint cluster = file.FirstCluster;
+        uint cluster = fatEntry.FirstCluster;
         do
         {
             if (cluster == 0) break;
@@ -410,7 +384,7 @@ public class FatFileSystem : IDisposable
             bytesCopied += bytesToCopy;
 
             cluster = fat[(int)cluster];
-        } while (cluster is > 0 && cluster < EMark && bytesCopied < file.Length);
+        } while (cluster is > 0 && cluster < EMark && bytesCopied < fatEntry.Length);
 
         //Debug.WriteLine($"{(cluster >= EMark ? "END" : cluster)}");
 

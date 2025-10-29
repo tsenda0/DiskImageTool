@@ -4,8 +4,11 @@ namespace DiskImageTool;
 
 public partial class FormDiskImageTool : Form
 {
-    private readonly IImageExtractorFactory imageExtractorFactory;
-    IImageExtractor? imageExtractor;
+    private readonly IImageReaderFactory imageReaderFactory;
+    IImageReader? imageReader;
+
+    private readonly IFileSystemFactory fsFactory;
+    IFileSystem? fileSystem;
 
     string imageFile = "";
     ImageFormat imageFormat = ImageFormat.Unknown;
@@ -25,10 +28,13 @@ public partial class FormDiskImageTool : Form
     CancellationTokenSource? cancellationTokenSource;
     Task? extractTask;
 
-    public FormDiskImageTool(IImageExtractorFactory imageExtractorFactory)
+    public FormDiskImageTool(IImageReaderFactory imageReaderFactory, IFileSystemFactory fsFactory)
     {
         InitializeComponent();
-        this.imageExtractorFactory = imageExtractorFactory;
+
+        this.imageReaderFactory = imageReaderFactory;
+        this.fsFactory = fsFactory;
+
         initFileDialog();
         updateListView([]);
     }
@@ -70,17 +76,22 @@ public partial class FormDiskImageTool : Form
         listViewFiles.Items.Clear();
         try
         {
-            imageExtractor?.Dispose(); // 既存のExtractorを破棄
+            imageReader?.Dispose(); // 既存のReaderを破棄
 
-            imageExtractor = imageExtractorFactory.Create(imageFormat);
-            if (imageExtractor.OpenImage(imageFile))
+            imageReader = imageReaderFactory.Create(imageFormat);
+            if (!imageReader.OpenImage(imageFile))
             {
-
-                labelFileName.Text = imageFile;
-
-                var files = getFiles();
-                updateListView(files);
+                return;
             }
+
+            labelFileName.Text = imageFile;
+
+            fileSystem?.Dispose();
+
+            fileSystem = fsFactory.Create(imageReader, FileSystemType.FAT);
+
+            var files = getFiles();
+            updateListView(files);
         }
         catch (Exception ex)
         {
@@ -88,18 +99,18 @@ public partial class FormDiskImageTool : Form
         }
     }
 
-    private IEnumerable<FatFileEntry> getFiles()
+    private IEnumerable<IFileEntry> getFiles()
     {
-        if (imageExtractor == null)
+        if (imageReader == null || fileSystem == null)
         {
             return [];
         }
 
-        var root = imageExtractor.GetRoot(checkIsUTC.Checked);
-        return root?.GetFiles() ?? [];
+        var root = fileSystem?.GetRoot(checkIsUTC.Checked);
+        return root?.SubEntries ?? [];
     }
 
-    void updateListView(IEnumerable<FatFileEntry> files)
+    void updateListView(IEnumerable<IFileEntry> files)
     {
         var fileList = files.ToList();
         listViewFiles.Items.Clear();
@@ -123,7 +134,7 @@ public partial class FormDiskImageTool : Form
 
     private async void extractAll_Click(object sender, EventArgs e)
     {
-        if (imageExtractor == null)
+        if (imageReader == null)
         {
             MessageBox.Show("イメージが開かれていません");
             return;
@@ -160,7 +171,7 @@ public partial class FormDiskImageTool : Form
 
     private async void extract_Click(object sender, EventArgs e)
     {
-        if (imageExtractor == null)
+        if (imageReader == null)
         {
             MessageBox.Show("イメージが開かれていません");
             return;
@@ -175,7 +186,7 @@ public partial class FormDiskImageTool : Form
 
         var checkedFiles = listViewFiles.CheckedItems
             .Cast<ListViewItem>()
-            .Select(item => item.Tag as FatFileEntry)
+            .Select(item => item.Tag as IFileEntry)
             .Where(file => file != null)
             .ToList();
 
@@ -206,9 +217,9 @@ public partial class FormDiskImageTool : Form
         }
     }
 
-    async Task<ExtractReport?> startExtractAsync(List<FatFileEntry> fileList)
+    async Task<ExtractReport?> startExtractAsync(List<IFileEntry> fileList)
     {
-        if (imageExtractor == null)
+        if (imageReader == null)
         {
             throw new InvalidOperationException("イメージが開かれていません");
         }
@@ -220,7 +231,7 @@ public partial class FormDiskImageTool : Form
             using var formProgress = createProgressForm(fileList.Count, () => cancellationTokenSource.Cancel());
             formProgress.Show(this);
 
-            var extractorService = new FileExtractorService(imageExtractor);
+            var extractorService = new FileExtractorService(fileSystem);
             var extractTask = extractorService.ExtractFilesAsync(
                 fileList,
                 folderBrowserDialog1.SelectedPath,
@@ -229,7 +240,6 @@ public partial class FormDiskImageTool : Form
             this.extractTask = extractTask;
             var result = await extractTask;
 
-            //ShowExtractionResult(result);
             return result;
         }
         catch (Exception)
@@ -307,13 +317,13 @@ public partial class FormDiskImageTool : Form
 
     private void buttonFATInfo_Click(object sender, EventArgs e)
     {
-        if (imageExtractor?.FileSystem == null)
+        if (fileSystem == null)
         {
             MessageBox.Show("イメージが開かれていません");
             return;
         }
 
-        FormFatInfo formInfo = new FormFatInfo(imageExtractor.FileSystem);
+        FormFatInfo formInfo = new FormFatInfo(fileSystem);
         formInfo.ShowDialog(this);
     }
 
@@ -338,7 +348,7 @@ public partial class FormDiskImageTool : Form
 
     private void checkIsUTC_Click(object sender, EventArgs e)
     {
-        if (imageExtractor == null)
+        if (imageReader == null)
         {
             return;
         }
@@ -356,7 +366,7 @@ public partial class FormDiskImageTool : Form
             components.Dispose();
         }
 
-        imageExtractor?.Dispose();
+        imageReader?.Dispose();
         base.Dispose(disposing);
     }
 

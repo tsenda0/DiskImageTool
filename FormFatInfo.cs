@@ -1,11 +1,10 @@
-namespace DiskImageTool
+namespace DiskImageTool;
+
+public partial class FormFatInfo : Form
 {
-    public partial class FormFatInfo : Form
+    public FormFatInfo(IFileSystem fat)
     {
-        public FormFatInfo(FatFileSystem fat)
-        {
-            InitializeComponent();
-            propertyGrid1.SelectedObject = fat;
-        }
+        InitializeComponent();
+        propertyGrid1.SelectedObject = fat;
     }
 }

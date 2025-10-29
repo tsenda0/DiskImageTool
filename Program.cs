@@ -13,7 +13,9 @@ internal static class Program
         ApplicationConfiguration.Initialize();
 
         // 依存性を注入してフォームを起動
-        IImageExtractorFactory extractorFactory = new ImageExtractorFactory();
-        Application.Run(new FormDiskImageTool(extractorFactory));
+        IImageReaderFactory readerFactory = new ImageReaderFactory();
+        IFileSystemFactory fsFactory = new FileSystemFactory();
+
+        Application.Run(new FormDiskImageTool(readerFactory, fsFactory));
     }
 }

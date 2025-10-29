@@ -3,16 +3,14 @@ using SevenZipExtractor;
 
 namespace DiskImageTool;
 
-public class LzhDcuExtractor : IImageExtractor
+public class LzhDcuReader : IImageReader
 {
-    DcuExtractor? subExtractor;
+    DcuReader? subReader;
     string? tempFile;
-
-    public FatFileSystem? FileSystem => subExtractor?.FileSystem;
 
     public void Dispose()
     {
-        subExtractor?.Dispose();
+        subReader?.Dispose();
 
         try
         {
@@ -27,16 +25,6 @@ public class LzhDcuExtractor : IImageExtractor
         }
 
         GC.SuppressFinalize(this);
-    }
-
-    public void ExtractFile(FatFileEntry file, string path)
-    {
-        subExtractor?.ExtractFile(file, path);
-    }
-
-    public FatFileEntry? GetRoot(bool isUTC)
-    {
-        return subExtractor?.GetRoot(isUTC);
     }
 
     public bool OpenImage(Stream stream)
@@ -80,13 +68,18 @@ public class LzhDcuExtractor : IImageExtractor
         tempFile = Path.GetTempFileName();
         entry.Extract(tempFile);
 
-        subExtractor = new DcuExtractor();
-        return subExtractor.OpenImage(tempFile);
+        subReader = new DcuReader();
+        return subReader.OpenImage(tempFile);
     }
 
     public bool OpenImage(string file)
     {
         using var stream = new FileStream(file, FileMode.Open);
         return OpenImage(stream);
+    }
+
+    public byte[]? GetBuffer()
+    {
+        return subReader?.GetBuffer();
     }
 }

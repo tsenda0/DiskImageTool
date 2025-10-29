@@ -1,8 +1,23 @@
 namespace DiskImageTool;
 
-public class FatFileEntry : IDisposable
+public interface IFileEntry
+{
+    public IEnumerable<IFileEntry>? SubEntries { get; }
+
+    public string Name { get; }
+
+
+    public uint Length { get; }
+
+    public DateTime WriteDateTime { get; }
+
+}
+
+public class FatFileEntry : IFileEntry
 {
     readonly IEnumerable<FatFileEntry>? subEntries;
+
+    public IEnumerable<IFileEntry>? SubEntries => subEntries;
 
     public string Name { get; }
 
@@ -35,10 +50,5 @@ public class FatFileEntry : IDisposable
     public override string ToString()
     {
         return $"{Name}";
-    }
-
-    public void Dispose()
-    {
-        GC.SuppressFinalize(this);
     }
 }

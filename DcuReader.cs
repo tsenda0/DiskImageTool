@@ -1,6 +1,6 @@
 namespace DiskImageTool;
 
-public class DcuExtractor : IImageExtractor
+public class DcuReader : IImageReader
 {
     /// <summary>
     /// disk buffer
@@ -31,12 +31,29 @@ public class DcuExtractor : IImageExtractor
     /// </summary>
     const int TRACKMAP_SIZE = 160;
 
-    /// <summary>
-    /// イメージ内のFATファイルシステム
-    /// </summary>
-    public FatFileSystem? FileSystem { get; private set; }
+    byte[]? image;
 
-    FatFileEntry? rootDir;
+    /// <summary>
+    /// DCUファイルの読み込み
+    /// </summary>
+    /// <param name="file"></param>
+    /// <returns></returns>
+    private static byte[] readDCUImage(Stream filestream)
+    {
+        var buffer = new byte[BUFSIZE];
+
+        using var workMemStream = new MemoryStream();
+        int nread;
+        do
+        {
+            nread = filestream.Read(buffer, 0, buffer.Length);
+            if (nread == 0) break;
+
+            workMemStream.Write(buffer, 0, nread);
+        } while (nread > 0);
+
+        return workMemStream.ToArray();
+    }
 
     /// <summary>
     /// トラックマップを使用してイメージを再構築(未使用トラックの情報を反映する)
@@ -86,87 +103,18 @@ public class DcuExtractor : IImageExtractor
     public bool OpenImage(Stream stream)
     {
         var dcuImage = readDCUImage(stream);
-        var newBuf = rebuildDCUImage(dcuImage);
-
-        FileSystem?.Dispose();
-        rootDir = null;
-        lastUTCflag = false;
-
-        FileSystem = new(newBuf);
+        image = rebuildDCUImage(dcuImage);
 
         return true;
     }
 
-    bool lastUTCflag;
-
-    public FatFileEntry? GetRoot(bool isUTC)
+    public byte[]? GetBuffer()
     {
-        if (rootDir == null || lastUTCflag != isUTC)
-        {
-            rootDir = FileSystem?.GetRoot(isUTC);
-            lastUTCflag = isUTC;
-        }
-
-        return rootDir;
-    }
-
-    /// <summary>
-    /// DCUファイルの読み込み
-    /// </summary>
-    /// <param name="file"></param>
-    /// <returns></returns>
-    private static byte[] readDCUImage(Stream filestream)
-    {
-        var buffer = new byte[BUFSIZE];
-
-        using var workMemStream = new MemoryStream();
-        int nread;
-        do
-        {
-            nread = filestream.Read(buffer, 0, buffer.Length);
-            if (nread == 0) break;
-
-            workMemStream.Write(buffer, 0, nread);
-        } while (nread > 0);
-
-        return workMemStream.ToArray();
-    }
-
-    /// <summary>
-    /// DCUイメージ内のファイルを抽出
-    /// </summary>
-    /// <param name="file"></param>
-    /// <param name="path"></param>
-    /// <exception cref="InvalidOperationException"></exception>
-    public void ExtractFile(FatFileEntry file, string path)
-    {
-        if (FileSystem == null) throw new InvalidOperationException("DCUファイルが選択されていません");
-
-        var buffer = new byte[BUFSIZE];
-
-        using var filestream = FileSystem.OpenFile(file);
-        var filename = Path.Combine(path, file.Name);
-        using var outFile = new FileStream(filename, FileMode.Create, FileAccess.Write);
-
-        int remaining = (int)file.Length;
-        do
-        {
-            if (remaining > 0)
-            {
-                int nread = filestream.Read(buffer, 0, Math.Min(buffer.Length, remaining));
-                if (nread == 0) break;
-                outFile.Write(buffer, 0, nread);
-                remaining -= nread;
-            }
-        } while (remaining > 0);
-
-        outFile.Close();
-        File.SetLastWriteTime(filename, file.WriteDateTime);
+        return image;
     }
 
     public void Dispose()
     {
-        FileSystem?.Dispose();
         GC.SuppressFinalize(this);
     }
 }

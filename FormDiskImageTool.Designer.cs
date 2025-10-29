@@ -19,7 +19,6 @@ namespace DiskImageTool
             {
                 components.Dispose();
             }
-            //ImageExtractor?.Dispose();
             base.Dispose(disposing);
         }
         */
