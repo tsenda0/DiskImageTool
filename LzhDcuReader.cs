@@ -8,6 +8,9 @@ public class LzhDcuReader : IImageReader
     DcuReader? subReader;
     string? tempFile;
 
+    string baseFileName = "";
+    string imageFileName = "";
+
     public bool OpenImage(Stream stream)
     {
         using var archive = new ArchiveFile(
@@ -40,8 +43,17 @@ public class LzhDcuReader : IImageReader
         }
 
         var image = filterdFiles.First(f => string.Equals(f.FileName, selfile, StringComparison.OrdinalIgnoreCase));
+        baseFileName = "(stream)";
 
         return openImageInArchive(image);
+    }
+
+    public bool OpenImage(string file)
+    {
+        using var stream = new FileStream(file, FileMode.Open);
+        var ret = OpenImage(stream);
+        baseFileName = Path.GetFileName(file);
+        return ret;
     }
 
     bool openImageInArchive(Entry entry)
@@ -49,15 +61,12 @@ public class LzhDcuReader : IImageReader
         tempFile = Path.GetTempFileName();
         entry.Extract(tempFile);
 
+        imageFileName = entry.FileName;
         subReader = new DcuReader();
         return subReader.OpenImage(tempFile);
     }
 
-    public bool OpenImage(string file)
-    {
-        using var stream = new FileStream(file, FileMode.Open);
-        return OpenImage(stream);
-    }
+    public string OpenFileName => $"{baseFileName} / {imageFileName}";
 
     public byte[]? GetBuffer()
     {

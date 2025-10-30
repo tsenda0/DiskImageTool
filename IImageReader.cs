@@ -6,6 +6,7 @@ namespace DiskImageTool;
 /// </summary>
 public interface IImageReader : IDisposable
 {
+    string OpenFileName { get; }
     /// <summary>
     /// 読み込まれたディスクイメージのバッファを取得
     /// </summary>

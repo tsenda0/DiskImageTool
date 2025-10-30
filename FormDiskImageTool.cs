@@ -42,7 +42,7 @@ public partial class FormDiskImageTool : Form
         openFileDialog1.Multiselect = false;
         openFileDialog1.CheckPathExists = true;
         openFileDialog1.Filter = @"DCUイメージファイル(*.DCU)|*.DCU|RAWイメージファイル(*.IMG)|*.IMG|LZHアーカイブ(*.LZH)|*.LZH|すべてのファイル(*.*)|*.*";
-        openFileDialog1.FilterIndex = 0;
+        openFileDialog1.FilterIndex = 3;
         openFileDialog1.RestoreDirectory = true;
         openFileDialog1.FileName = "";
     }
@@ -87,6 +87,10 @@ public partial class FormDiskImageTool : Form
         }
         catch (Exception ex)
         {
+            imageReader?.Dispose();
+            imageReader = null;
+            fileSystem?.Dispose();
+            fileSystem = null;
             MessageBox.Show($"エラー: {ex.Message}");
         }
     }
@@ -98,9 +102,16 @@ public partial class FormDiskImageTool : Form
             return [];
         }
 
-        var root = fileSystem?.GetRoot();
+        try
+        {
+            var root = fileSystem?.GetRoot();
 
-        return root?.SubEntries ?? [];
+            return root?.SubEntries ?? [];
+        }
+        catch
+        {
+            return [];
+        }
     }
 
     static DateTime utcToLocalTime(DateTime utc)
@@ -115,7 +126,13 @@ public partial class FormDiskImageTool : Form
         var sortedLvItems = sortListViewItems(files);
 
         listViewFiles.Items.AddRange(sortedLvItems.ToArray());
-        labelStatus.Text = $@"{sortedLvItems.Count()}ファイル";
+
+        var fatType = (fileSystem is FatFileSystem fatFs) ? $" / {fatFs.FatType}" : "";
+
+        var countStr = fileSystem != null
+            ? $" ({fileSystem.ImageSizeBytes / 1024.0 / 1024.0:0.00}MBフォーマット{fatType} / {sortedLvItems.Count()}個の項目)"
+            : "";
+        labelStatus.Text = $@"{imageReader?.OpenFileName}{countStr}";
     }
 
     private IOrderedEnumerable<ListViewItem> sortListViewItems(IEnumerable<IFileEntry> files)
@@ -181,13 +198,16 @@ public partial class FormDiskImageTool : Form
             return;
         }
 
+        // 以下のToArray()は無くてもコンパイルは通るが
+        // 実行時にエラーとなるので注意(スレッドを跨いだアクセス)
         var checkedFiles = listViewFiles.CheckedItems
             .Cast<ListViewItem>()
             .Select(item => item.Tag as IFileEntry)
             .Where(file => file != null)
-            .Cast<IFileEntry>();
+            .Cast<IFileEntry>()
+            .ToArray();
 
-        if (!checkedFiles.Any())
+        if (checkedFiles.Length == 0)
         {
             MessageBox.Show("ファイルが選択されていません。");
             return;

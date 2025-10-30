@@ -84,7 +84,7 @@ namespace DiskImageTool
             labelFileName.Dock = DockStyle.Fill;
             labelFileName.Location = new Point(4, 8);
             labelFileName.Name = "labelFileName";
-            labelFileName.Size = new Size(380, 44);
+            labelFileName.Size = new Size(420, 44);
             labelFileName.TabIndex = 0;
             labelFileName.Text = "ファイルを選択してください";
             labelFileName.TextAlign = ContentAlignment.MiddleLeft;
@@ -96,7 +96,7 @@ namespace DiskImageTool
             panelTop.Dock = DockStyle.Top;
             panelTop.Location = new Point(0, 0);
             panelTop.Name = "panelTop";
-            panelTop.Size = new Size(504, 60);
+            panelTop.Size = new Size(544, 60);
             panelTop.TabIndex = 0;
             // 
             // panelFileName
@@ -106,14 +106,14 @@ namespace DiskImageTool
             panelFileName.Location = new Point(0, 0);
             panelFileName.Name = "panelFileName";
             panelFileName.Padding = new Padding(4, 8, 4, 8);
-            panelFileName.Size = new Size(388, 60);
+            panelFileName.Size = new Size(428, 60);
             panelFileName.TabIndex = 0;
             // 
             // panelSelectFile
             // 
             panelSelectFile.Controls.Add(buttonSelectFile);
             panelSelectFile.Dock = DockStyle.Right;
-            panelSelectFile.Location = new Point(388, 0);
+            panelSelectFile.Location = new Point(428, 0);
             panelSelectFile.Name = "panelSelectFile";
             panelSelectFile.Padding = new Padding(4, 4, 8, 4);
             panelSelectFile.Size = new Size(116, 60);
@@ -127,7 +127,7 @@ namespace DiskImageTool
             panelRight.Controls.Add(buttonExtract);
             panelRight.Controls.Add(buttonExtractAll);
             panelRight.Dock = DockStyle.Right;
-            panelRight.Location = new Point(388, 80);
+            panelRight.Location = new Point(428, 80);
             panelRight.Name = "panelRight";
             panelRight.Size = new Size(116, 421);
             panelRight.TabIndex = 3;
@@ -182,7 +182,7 @@ namespace DiskImageTool
             labelStatus.Dock = DockStyle.Top;
             labelStatus.Location = new Point(0, 60);
             labelStatus.Name = "labelStatus";
-            labelStatus.Size = new Size(504, 20);
+            labelStatus.Size = new Size(544, 20);
             labelStatus.TabIndex = 1;
             labelStatus.TextAlign = ContentAlignment.MiddleLeft;
             // 
@@ -193,7 +193,7 @@ namespace DiskImageTool
             panelFileList.Location = new Point(0, 80);
             panelFileList.Name = "panelFileList";
             panelFileList.Padding = new Padding(4);
-            panelFileList.Size = new Size(388, 421);
+            panelFileList.Size = new Size(428, 421);
             panelFileList.TabIndex = 2;
             // 
             // listViewFiles
@@ -207,7 +207,7 @@ namespace DiskImageTool
             listViewFiles.Name = "listViewFiles";
             listViewFiles.OwnerDraw = true;
             listViewFiles.ShowItemToolTips = true;
-            listViewFiles.Size = new Size(380, 413);
+            listViewFiles.Size = new Size(420, 413);
             listViewFiles.TabIndex = 0;
             listViewFiles.UseCompatibleStateImageBehavior = false;
             listViewFiles.View = View.Details;
@@ -218,24 +218,24 @@ namespace DiskImageTool
             // columnFileName
             // 
             columnFileName.Text = "ファイル名";
-            columnFileName.Width = 120;
+            columnFileName.Width = 140;
             // 
             // columnSize
             // 
             columnSize.Text = "サイズ";
             columnSize.TextAlign = HorizontalAlignment.Right;
-            columnSize.Width = 80;
+            columnSize.Width = 90;
             // 
             // columnDate
             // 
             columnDate.Text = "日付";
-            columnDate.Width = 140;
+            columnDate.Width = 160;
             // 
             // FormDiskImageTool
             // 
             AutoScaleDimensions = new SizeF(7F, 17F);
             AutoScaleMode = AutoScaleMode.Font;
-            ClientSize = new Size(504, 501);
+            ClientSize = new Size(544, 501);
             Controls.Add(panelFileList);
             Controls.Add(panelRight);
             Controls.Add(labelStatus);

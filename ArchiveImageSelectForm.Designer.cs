@@ -89,8 +89,10 @@ namespace DiskImageTool
             // 
             // ArchiveImageSelectForm
             // 
+            AcceptButton = buttonOK;
             AutoScaleDimensions = new SizeF(7F, 17F);
             AutoScaleMode = AutoScaleMode.Font;
+            CancelButton = buttonCancel;
             ClientSize = new Size(324, 301);
             Controls.Add(listFiles);
             Controls.Add(panelCommand);

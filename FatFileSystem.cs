@@ -208,10 +208,23 @@ public class FatFileSystem : IFileSystem
     /// </summary>
     public IFileEntry GetRoot()
     {
+        ObjectDisposedException.ThrowIf(isDisposed, this);
+
         if (rootDir == null)
         {
             List<FatFileEntry> entries = getRootDirEntries();
-            rootDir = new FatFileEntry("\\", 0, DateTime.Now, entries);
+            DateTime dt;
+            try
+            {
+                var rootDate = (ushort)(VolumeID >> 16);
+                var rootTime = (ushort)(VolumeID & 0xffff);
+                dt = getFatDateTime(rootTime, rootDate);
+            }
+            catch (Exception)
+            {
+                dt = DateTime.MinValue;
+            }
+            rootDir = new FatFileEntry("\\", 0, dt, entries);
         }
 
         return rootDir;
@@ -224,6 +237,8 @@ public class FatFileSystem : IFileSystem
     /// <returns></returns>
     public Stream OpenFile(IFileEntry file)
     {
+        ObjectDisposedException.ThrowIf(isDisposed, this);
+
         if (bufferSpan.IsEmpty) throw new InvalidOperationException("イメージが開かれていません");
 
         if (file is not FatFileEntry fatEntry)
@@ -269,6 +284,8 @@ public class FatFileSystem : IFileSystem
 
     public Stream OpenFile(string path)
     {
+        ObjectDisposedException.ThrowIf(isDisposed, this);
+
         if (rootDir == null) throw new InvalidOperationException("ルートディレクトリが開かれていません");
 
         var ent = rootDir.GetFiles().FirstOrDefault(f => string.Equals(f.Name, path, StringComparison.OrdinalIgnoreCase))
@@ -328,7 +345,7 @@ public class FatFileSystem : IFileSystem
         int day = date & 0x1f;
         int hour = time >> 11;
         int minute = (time & 0x7e0) >> 5;
-        int second = time & 0x1f;
+        int second = (time & 0x1f) * 2;
         DateTime writeDateTime = isUTC
             ? new DateTime(year, month, day, hour, minute, second, DateTimeKind.Utc).ToLocalTime()
             : new DateTime(year, month, day, hour, minute, second);
@@ -449,7 +466,8 @@ public class FatFileSystem : IFileSystem
         TotalSector32 = BitConverter.ToUInt32(bpbSpan[BpbOffsetTotalSector32..]);
 
         VolumeID = BitConverter.ToUInt32(bpbSpan[BpbOffsetVolID..]);
-        VolumeLabel = sjisEncoding.GetString(bpbSpan[BpbOffsetVolLabel..(BpbOffsetVolLabel + BpbVolLabelLength)]);
+
+        VolumeLabel = sjisEncoding.GetString(bpbSpan[BpbOffsetVolLabel..(BpbOffsetVolLabel + BpbVolLabelLength)]).TrimEnd();
         FatFileSystemType = Encoding.ASCII.GetString(bpbSpan[BpbOffsetFSType..(BpbOffsetFSType + BpbFSTypeLength)]);
 
         // FAT種別の推定
@@ -464,11 +482,28 @@ public class FatFileSystem : IFileSystem
                 : FatType.FAT32;
     }
 
+    bool isDisposed;
+
+    protected virtual void Dispose(bool disposing)
+    {
+        if (isDisposed) return;
+
+        if (disposing)
+        {
+            // dispose managed resource
+            // buffer は GC 対象。fat はクリアする。
+            fat.Clear();
+            rootDir = null;
+        }
+
+        // dispose unmanaged resource
+
+        isDisposed = true;
+    }
+
     public void Dispose()
     {
-        //Root?.Dispose();
-        // buffer は GC 対象。fat はクリアする。
-        fat.Clear(); // List<T>のリソースを解放
+        Dispose(true);
 
         GC.SuppressFinalize(this);
     }

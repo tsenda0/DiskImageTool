@@ -14,15 +14,19 @@ public class RawReader : IImageReader
     public bool OpenImage(Stream stream)
     {
         image = readRawImage(stream);
-
+        OpenFileName = "(stream)";
         return true;
     }
 
     public bool OpenImage(string file)
     {
         using var stream = new FileStream(file, FileMode.Open);
-        return OpenImage(stream);
+        var ret = OpenImage(stream);
+        OpenFileName = Path.GetFileName(file);
+        return ret;
     }
+
+    public string OpenFileName { get; private set; } = "";
 
     public byte[]? GetBuffer()
     {

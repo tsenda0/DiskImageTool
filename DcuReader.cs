@@ -83,16 +83,20 @@ public class DcuReader : IImageReader
     public bool OpenImage(string file)
     {
         using var stream = new FileStream(file, FileMode.Open);
-        return OpenImage(stream);
+        var ret = OpenImage(stream);
+        OpenFileName = Path.GetFileName(file);
+        return ret;
     }
 
     public bool OpenImage(Stream stream)
     {
         var dcuImage = readDCUImage(stream);
         image = rebuildDCUImage(dcuImage);
-
+        OpenFileName = "(stream)";
         return true;
     }
+
+    public string OpenFileName { get; private set; } = "";
 
     public byte[]? GetBuffer()
     {
