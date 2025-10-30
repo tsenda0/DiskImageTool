@@ -1,6 +1,6 @@
 namespace DiskImageTool
 {
-    partial class FormFatInfo
+    partial class FormFileSystemInfo
     {
         /// <summary>
         /// Required designer variable.
@@ -40,7 +40,6 @@ namespace DiskImageTool
             propertyGrid1.Dock = DockStyle.Fill;
             propertyGrid1.Location = new Point(0, 0);
             propertyGrid1.Name = "propertyGrid1";
-            propertyGrid1.PropertySort = PropertySort.Alphabetical;
             propertyGrid1.Size = new Size(304, 353);
             propertyGrid1.TabIndex = 0;
             propertyGrid1.ToolbarVisible = false;
@@ -64,16 +63,16 @@ namespace DiskImageTool
             buttonClose.Text = "閉じる";
             buttonClose.UseVisualStyleBackColor = true;
             // 
-            // FormFatInfo
+            // FormFileSystemInfo
             // 
             AutoScaleDimensions = new SizeF(7F, 15F);
             AutoScaleMode = AutoScaleMode.Font;
             ClientSize = new Size(304, 401);
             Controls.Add(propertyGrid1);
             Controls.Add(panel1);
-            Name = "FormFatInfo";
+            Name = "FormFileSystemInfo";
             StartPosition = FormStartPosition.CenterParent;
-            Text = "FAT詳細";
+            Text = "ファイルシステム詳細";
             panel1.ResumeLayout(false);
             ResumeLayout(false);
         }

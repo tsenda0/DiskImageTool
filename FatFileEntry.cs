@@ -1,18 +1,5 @@
 namespace DiskImageTool;
 
-public interface IFileEntry
-{
-    public IEnumerable<IFileEntry>? SubEntries { get; }
-
-    public string Name { get; }
-
-
-    public uint Length { get; }
-
-    public DateTime WriteDateTime { get; }
-
-}
-
 public class FatFileEntry : IFileEntry
 {
     readonly IEnumerable<FatFileEntry>? subEntries;
@@ -27,7 +14,7 @@ public class FatFileEntry : IFileEntry
 
     public DateTime WriteDateTime { get; }
 
-    public FatFileEntry(string name, uint firstCluster, uint size, DateTime writeDateTime)
+    public FatFileEntry(string name, uint firstCluster, DateTime writeDateTime, uint size)
     {
         Name = name;
         Length = size;
@@ -35,9 +22,11 @@ public class FatFileEntry : IFileEntry
         WriteDateTime = writeDateTime;
     }
 
-    public FatFileEntry(string name, IEnumerable<FatFileEntry> subEntries)
+    public FatFileEntry(string name, uint firstCluster, DateTime writeDateTime, IEnumerable<FatFileEntry> subEntries)
     {
         Name = name;
+        FirstCluster = firstCluster;
+        WriteDateTime = writeDateTime;
         this.subEntries = subEntries;
         Length = 0;
     }

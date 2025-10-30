@@ -172,7 +172,8 @@ dotnet_style_parentheses_in_arithmetic_binary_operators = never_if_unnecessary:s
 dotnet_style_parentheses_in_other_binary_operators = never_if_unnecessary:suggestion
 dotnet_style_parentheses_in_relational_binary_operators = never_if_unnecessary:suggestion
 dotnet_style_parentheses_in_other_operators = never_if_unnecessary:suggestion
-dotnet_diagnostic.IDE0040.severity = silent
+dotnet_diagnostic.IDE0047.severity = suggestion
+dotnet_diagnostic.IDE0048.severity = silent
 
 dotnet_code_quality_unused_parameters = all:suggestion
 
@@ -200,6 +201,10 @@ dotnet_style_allow_multiple_blank_lines_experimental = true:silent
 dotnet_style_allow_statement_immediately_after_block_experimental = true:silent
 dotnet_style_predefined_type_for_locals_parameters_members = true:silent
 dotnet_style_predefined_type_for_member_access = true:silent
+
+dotnet_style_prefer_collection_expression = true:silent
+dotnet_diagnostic.IDE0305.severity = silent
+
 dotnet_analyzer_diagnostic.category-performance.severity = suggestion
 dotnet_analyzer_diagnostic.category-Interoperability.severity = suggestion
 dotnet_analyzer_diagnostic.category-Maintainability.severity = suggestion

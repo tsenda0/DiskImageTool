@@ -1,8 +1,8 @@
 namespace DiskImageTool;
 
-public partial class FormFatInfo : Form
+public partial class FormFileSystemInfo : Form
 {
-    public FormFatInfo(IFileSystem fat)
+    public FormFileSystemInfo(IFileSystem fat)
     {
         InitializeComponent();
         propertyGrid1.SelectedObject = fat;

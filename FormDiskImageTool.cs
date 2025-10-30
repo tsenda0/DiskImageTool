@@ -10,15 +10,12 @@ public partial class FormDiskImageTool : Form
     private readonly IFileSystemFactory fsFactory;
     IFileSystem? fileSystem;
 
-    string imageFile = "";
-    ImageFormat imageFormat = ImageFormat.Unknown;
-
     SortOrder sortOrder = SortOrder.Unknown;
     SortOrder lastSortOrder = SortOrder.Name;
     int sortColumn;
     SortDirection sortDirection = SortDirection.Ascending;
 
-    readonly Dictionary<SortOrder, IComparer<FatFileEntry?>> sorterMap = new() {
+    readonly Dictionary<SortOrder, IComparer<IFileEntry?>> sorterMap = new() {
         { SortOrder.Unknown, new FileNameComparer() },
         { SortOrder.Name, new FileNameComparer() },
         { SortOrder.Size, new FileSizeComparer() },
@@ -55,19 +52,14 @@ public partial class FormDiskImageTool : Form
         var result = openFileDialog1.ShowDialog(this);
         if (result == DialogResult.Cancel) return;
 
-        imageFile = openFileDialog1.FileName;
-        imageFormat = openFileDialog1.FilterIndex switch
+        string imageFile = openFileDialog1.FileName;
+        ImageFormat imageFormat = openFileDialog1.FilterIndex switch
         {
             1 => ImageFormat.DCU,
             2 => ImageFormat.Raw,
             3 => ImageFormat.LZH,
             _ => ImageFormat.Raw, //Rawとして開く
         };
-
-        if (imageFile.Length == 0)
-        {
-            return;
-        }
 
         if (imageFormat is ImageFormat.DCU or ImageFormat.LZH) checkIsUTC.Checked = false;
 
@@ -106,35 +98,48 @@ public partial class FormDiskImageTool : Form
             return [];
         }
 
-        var root = fileSystem?.GetRoot(checkIsUTC.Checked);
+        var root = fileSystem?.GetRoot();
+
         return root?.SubEntries ?? [];
+    }
+
+    static DateTime utcToLocalTime(DateTime utc)
+    {
+        return DateTime.SpecifyKind(utc, DateTimeKind.Utc).ToLocalTime();
     }
 
     void updateListView(IEnumerable<IFileEntry> files)
     {
-        var fileList = files.ToList();
         listViewFiles.Items.Clear();
 
-        var lvitems = fileList.Select(f =>
+        var sortedLvItems = sortListViewItems(files);
+
+        listViewFiles.Items.AddRange(sortedLvItems.ToArray());
+        labelStatus.Text = $@"{sortedLvItems.Count()}ファイル";
+    }
+
+    private IOrderedEnumerable<ListViewItem> sortListViewItems(IEnumerable<IFileEntry> files)
+    {
+        var lvitems = files.Select(f =>
         {
             var item = new ListViewItem(f.Name);
             item.SubItems.Add(new ListViewItem.ListViewSubItem(item, $"{f.Length:N0}")); // N0 は桁区切り付き数値を表す
-            item.SubItems.Add(new ListViewItem.ListViewSubItem(item, $"{f.WriteDateTime:yyyy-MM-dd HH:mm:ss}"));
+            var date = $"{(checkIsUTC.Checked ? utcToLocalTime(f.WriteDateTime) : f.WriteDateTime):yyyy-MM-dd HH:mm:ss}";
+            item.SubItems.Add(new ListViewItem.ListViewSubItem(item, date));
             item.Tag = f;
             return item;
         });
 
         var sortedLvItems = sortDirection == SortDirection.Descending
-            ? lvitems.OrderByDescending(f => f.Tag as FatFileEntry, sorterMap[sortOrder])
-            : lvitems.OrderBy(f => f.Tag as FatFileEntry, sorterMap[sortOrder]);
+            ? lvitems.OrderByDescending(f => f.Tag as IFileEntry, sorterMap[sortOrder])
+            : lvitems.OrderBy(f => f.Tag as IFileEntry, sorterMap[sortOrder]);
 
-        listViewFiles.Items.AddRange([.. sortedLvItems]);
-        labelStatus.Text = $@"{sortedLvItems.Count()}ファイル";
+        return sortedLvItems;
     }
 
     private async void extractAll_Click(object sender, EventArgs e)
     {
-        if (imageReader == null)
+        if (imageReader == null || fileSystem == null)
         {
             MessageBox.Show("イメージが開かれていません");
             return;
@@ -152,16 +157,8 @@ public partial class FormDiskImageTool : Form
 
         try
         {
-            var res = await startExtractAsync([.. files]);
-            if (res != null)
-            {
-                showExtractionResult(res);
-            }
-            else
-            {
-                MessageBox.Show($"エラーが発生しました");
-            }
-
+            var res = await startExtractAsync(files);
+            showExtractionResult(res);
         }
         catch (Exception ex)
         {
@@ -171,7 +168,7 @@ public partial class FormDiskImageTool : Form
 
     private async void extract_Click(object sender, EventArgs e)
     {
-        if (imageReader == null)
+        if (imageReader == null || fileSystem == null)
         {
             MessageBox.Show("イメージが開かれていません");
             return;
@@ -188,9 +185,9 @@ public partial class FormDiskImageTool : Form
             .Cast<ListViewItem>()
             .Select(item => item.Tag as IFileEntry)
             .Where(file => file != null)
-            .ToList();
+            .Cast<IFileEntry>();
 
-        if (checkedFiles.Count == 0)
+        if (!checkedFiles.Any())
         {
             MessageBox.Show("ファイルが選択されていません。");
             return;
@@ -201,15 +198,8 @@ public partial class FormDiskImageTool : Form
 
         try
         {
-            var res = await startExtractAsync(checkedFiles!);
-            if (res != null)
-            {
-                showExtractionResult(res);
-            }
-            else
-            {
-                MessageBox.Show($"エラーが発生しました");
-            }
+            var res = await startExtractAsync(checkedFiles);
+            showExtractionResult(res);
         }
         catch (Exception ex)
         {
@@ -217,9 +207,9 @@ public partial class FormDiskImageTool : Form
         }
     }
 
-    async Task<ExtractReport?> startExtractAsync(List<IFileEntry> fileList)
+    async Task<ExtractReport> startExtractAsync(IEnumerable<IFileEntry> fileList)
     {
-        if (imageReader == null)
+        if (imageReader == null || fileSystem == null)
         {
             throw new InvalidOperationException("イメージが開かれていません");
         }
@@ -228,25 +218,20 @@ public partial class FormDiskImageTool : Form
         {
             cancellationTokenSource = new CancellationTokenSource();
 
-            using var formProgress = createProgressForm(fileList.Count, () => cancellationTokenSource.Cancel());
+            using var formProgress = createProgressForm(fileList.Count(), () => cancellationTokenSource.Cancel());
             formProgress.Show(this);
 
             var extractorService = new FileExtractorService(fileSystem);
             var extractTask = extractorService.ExtractFilesAsync(
                 fileList,
                 folderBrowserDialog1.SelectedPath,
+                checkIsUTC.Checked,
                 cancellationTokenSource.Token,
                 formProgress.GetReporter());
             this.extractTask = extractTask;
             var result = await extractTask;
 
             return result;
-        }
-        catch (Exception)
-        {
-            // ユーザーには例外メッセージのみを表示する方が親切
-            //MessageBox.Show($"エラー: {ex.Message}");
-            return null;
         }
         finally
         {
@@ -323,7 +308,7 @@ public partial class FormDiskImageTool : Form
             return;
         }
 
-        FormFatInfo formInfo = new FormFatInfo(fileSystem);
+        FormFileSystemInfo formInfo = new FormFileSystemInfo(fileSystem);
         formInfo.ShowDialog(this);
     }
 
@@ -348,13 +333,6 @@ public partial class FormDiskImageTool : Form
 
     private void checkIsUTC_Click(object sender, EventArgs e)
     {
-        if (imageReader == null)
-        {
-            return;
-        }
-
-        if (imageFile.Length == 0 || imageFormat == ImageFormat.Unknown) return;
-
         var files = getFiles();
         updateListView(files);
     }
@@ -366,7 +344,12 @@ public partial class FormDiskImageTool : Form
             components.Dispose();
         }
 
-        imageReader?.Dispose();
+        if (disposing)
+        {
+            imageReader?.Dispose();
+            fileSystem?.Dispose();
+        }
+
         base.Dispose(disposing);
     }
 

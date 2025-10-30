@@ -8,25 +8,6 @@ public class LzhDcuReader : IImageReader
     DcuReader? subReader;
     string? tempFile;
 
-    public void Dispose()
-    {
-        subReader?.Dispose();
-
-        try
-        {
-            if (File.Exists(tempFile))
-            {
-                File.Delete(tempFile);
-            }
-        }
-        catch (Exception)
-        {
-            Debug.WriteLine($"can not delete {tempFile}");
-        }
-
-        GC.SuppressFinalize(this);
-    }
-
     public bool OpenImage(Stream stream)
     {
         using var archive = new ArchiveFile(
@@ -58,7 +39,7 @@ public class LzhDcuReader : IImageReader
             return false;
         }
 
-        var image = filterdFiles.First(f => f.FileName == selfile);
+        var image = filterdFiles.First(f => string.Equals(f.FileName, selfile, StringComparison.OrdinalIgnoreCase));
 
         return openImageInArchive(image);
     }
@@ -81,5 +62,40 @@ public class LzhDcuReader : IImageReader
     public byte[]? GetBuffer()
     {
         return subReader?.GetBuffer();
+    }
+
+    public void Dispose()
+    {
+        Dispose(true);
+        GC.SuppressFinalize(this);
+    }
+
+    bool isDisposed;
+
+    protected virtual void Dispose(bool disposing)
+    {
+        if (isDisposed) return;
+
+        if (disposing)
+        {
+            // dispose managed resource
+            subReader?.Dispose();
+        }
+
+        // dispose unmanaged resource
+        try
+        {
+            if (File.Exists(tempFile))
+            {
+                File.Delete(tempFile);
+            }
+        }
+        catch (Exception)
+        {
+            Debug.WriteLine($"can not delete {tempFile}");
+        }
+
+        tempFile = null;
+        isDisposed = true;
     }
 }

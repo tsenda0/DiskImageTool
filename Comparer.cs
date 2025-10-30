@@ -1,8 +1,8 @@
 namespace DiskImageTool;
 
-sealed class FileNameComparer : IComparer<FatFileEntry?>
+sealed class FileNameComparer : IComparer<IFileEntry?>
 {
-    public int Compare(FatFileEntry? x, FatFileEntry? y)
+    public int Compare(IFileEntry? x, IFileEntry? y)
     {
         if (x == null && y == null) return 0;
         if (x == null) return -1;
@@ -17,9 +17,9 @@ sealed class FileNameComparer : IComparer<FatFileEntry?>
     }
 }
 
-sealed class FileSizeComparer : IComparer<FatFileEntry?>
+sealed class FileSizeComparer : IComparer<IFileEntry?>
 {
-    public int Compare(FatFileEntry? x, FatFileEntry? y)
+    public int Compare(IFileEntry? x, IFileEntry? y)
     {
         return x == null && y == null
                     ? 0 : x == null
@@ -30,9 +30,9 @@ sealed class FileSizeComparer : IComparer<FatFileEntry?>
     }
 }
 
-sealed class FileDateComparer : IComparer<FatFileEntry?>
+sealed class FileDateComparer : IComparer<IFileEntry?>
 {
-    public int Compare(FatFileEntry? x, FatFileEntry? y)
+    public int Compare(IFileEntry? x, IFileEntry? y)
     {
         return x == null && y == null
                     ? 0 : x == null

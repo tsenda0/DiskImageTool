@@ -7,6 +7,11 @@ public enum ImageFormat
     LZH = 3,
 }
 
+public interface IImageReaderFactory
+{
+    IImageReader Create(ImageFormat format);
+}
+
 /// <summary>
 /// IImageReaderのインスタンスを生成するファクトリクラス
 /// </summary>
@@ -23,9 +28,4 @@ public class ImageReaderFactory : IImageReaderFactory
             _ => throw new InvalidOperationException("フォーマットが不明です"),
         };
     }
-}
-
-public interface IImageReaderFactory
-{
-    IImageReader Create(ImageFormat format);
 }

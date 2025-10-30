@@ -3,10 +3,6 @@ namespace DiskImageTool;
 public class DcuReader : IImageReader
 {
     /// <summary>
-    /// disk buffer
-    /// </summary>
-    const int BUFSIZE = 1440 * 1024;
-    /// <summary>
     /// DCU header size
     /// </summary>
     const int DcuOffset = 0xa2;
@@ -40,18 +36,8 @@ public class DcuReader : IImageReader
     /// <returns></returns>
     private static byte[] readDCUImage(Stream filestream)
     {
-        var buffer = new byte[BUFSIZE];
-
         using var workMemStream = new MemoryStream();
-        int nread;
-        do
-        {
-            nread = filestream.Read(buffer, 0, buffer.Length);
-            if (nread == 0) break;
-
-            workMemStream.Write(buffer, 0, nread);
-        } while (nread > 0);
-
+        filestream.CopyTo(workMemStream);
         return workMemStream.ToArray();
     }
 
@@ -115,6 +101,23 @@ public class DcuReader : IImageReader
 
     public void Dispose()
     {
+        Dispose(true);
         GC.SuppressFinalize(this);
+    }
+
+    bool isDisposed;
+
+    protected virtual void Dispose(bool disposing)
+    {
+        if (isDisposed) return;
+
+        if (disposing)
+        {
+            // dispose managed resource
+        }
+
+        // dispose unmanaged resource
+
+        isDisposed = true;
     }
 }
