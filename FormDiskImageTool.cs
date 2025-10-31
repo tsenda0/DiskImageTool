@@ -28,12 +28,12 @@ public partial class FormDiskImageTool : Form
     public FormDiskImageTool(IImageReaderFactory imageReaderFactory, IFileSystemFactory fsFactory)
     {
         InitializeComponent();
+        initFileDialog();
 
         this.imageReaderFactory = imageReaderFactory;
         this.fsFactory = fsFactory;
 
-        initFileDialog();
-        updateListView([]);
+        updateListView();
     }
 
     void initFileDialog()
@@ -82,8 +82,7 @@ public partial class FormDiskImageTool : Form
 
             fileSystem = fsFactory.Create(imageReader, FileSystemType.FAT);
 
-            var files = getFiles();
-            updateListView(files);
+            updateListView();
         }
         catch (Exception ex)
         {
@@ -102,16 +101,9 @@ public partial class FormDiskImageTool : Form
             return [];
         }
 
-        try
-        {
-            var root = fileSystem?.GetRoot();
+        var root = fileSystem?.GetRoot();
 
-            return root?.SubEntries ?? [];
-        }
-        catch
-        {
-            return [];
-        }
+        return root?.SubEntries ?? [];
     }
 
     static DateTime utcToLocalTime(DateTime utc)
@@ -119,20 +111,28 @@ public partial class FormDiskImageTool : Form
         return DateTime.SpecifyKind(utc, DateTimeKind.Utc).ToLocalTime();
     }
 
-    void updateListView(IEnumerable<IFileEntry> files)
+    void updateListView()
     {
-        listViewFiles.Items.Clear();
+        try
+        {
+            listViewFiles.Items.Clear();
 
-        var sortedLvItems = sortListViewItems(files);
+            var files = getFiles();
+            var sortedLvItems = sortListViewItems(files);
 
-        listViewFiles.Items.AddRange(sortedLvItems.ToArray());
+            listViewFiles.Items.AddRange(sortedLvItems.ToArray());
 
-        var fatType = (fileSystem is FatFileSystem fatFs) ? $" / {fatFs.FatType}" : "";
+            var fatType = (fileSystem is FatFileSystem fatFs) ? $" / {fatFs.FatType}" : "";
 
-        var countStr = fileSystem != null
-            ? $" ({fileSystem.ImageSizeBytes / 1024.0 / 1024.0:0.00}MBフォーマット{fatType} / {sortedLvItems.Count()}個の項目)"
-            : "";
-        labelStatus.Text = $@"{imageReader?.OpenFileName}{countStr}";
+            var countStr = fileSystem != null
+                ? $" ({fileSystem.ImageSizeBytes / 1024.0 / 1024.0:0.00}MBフォーマット{fatType} / {sortedLvItems.Count()}個の項目)"
+                : "";
+            labelStatus.Text = $@"{imageReader?.OpenFileName}{countStr}";
+        }
+        catch (Exception ex)
+        {
+            MessageBox.Show($"エラー: {ex.Message}");
+        }
     }
 
     private IOrderedEnumerable<ListViewItem> sortListViewItems(IEnumerable<IFileEntry> files)
@@ -162,24 +162,25 @@ public partial class FormDiskImageTool : Form
             return;
         }
 
-        var files = getFiles();
-        if (!files.Any())
-        {
-            MessageBox.Show("イメージにファイルがありません。");
-            return;
-        }
-
-        var result = folderBrowserDialog1.ShowDialog(this);
-        if (result == DialogResult.Cancel) return;
-
         try
         {
+            var files = getFiles();
+            if (!files.Any())
+            {
+                MessageBox.Show("イメージにファイルがありません。");
+                return;
+            }
+
+            var result = folderBrowserDialog1.ShowDialog(this);
+            if (result == DialogResult.Cancel) return;
+
             await startExtractAsync(files);
         }
         catch (Exception ex)
         {
             MessageBox.Show($"エラー: {ex.Message}");
         }
+
     }
 
     private async void extract_Click(object sender, EventArgs e)
@@ -190,33 +191,33 @@ public partial class FormDiskImageTool : Form
             return;
         }
 
-        var files = getFiles();
-        if (!files.Any())
-        {
-            MessageBox.Show("イメージにファイルがありません。");
-            return;
-        }
-
-        // 以下のToArray()は無くてもコンパイルは通るが
-        // 実行時にエラーとなるので注意(スレッドを跨いだアクセス)
-        var checkedFiles = listViewFiles.CheckedItems
-            .Cast<ListViewItem>()
-            .Select(item => item.Tag as IFileEntry)
-            .Where(file => file != null)
-            .Cast<IFileEntry>()
-            .ToArray();
-
-        if (checkedFiles.Length == 0)
-        {
-            MessageBox.Show("ファイルが選択されていません。");
-            return;
-        }
-
-        var result = folderBrowserDialog1.ShowDialog(this);
-        if (result == DialogResult.Cancel) return;
-
         try
         {
+            var files = getFiles();
+            if (!files.Any())
+            {
+                MessageBox.Show("イメージにファイルがありません。");
+                return;
+            }
+
+            // 以下のToArray()は無くてもコンパイルは通るが
+            // 実行時にエラーとなるので注意(スレッドを跨いだアクセス)
+            var checkedFiles = listViewFiles.CheckedItems
+                .Cast<ListViewItem>()
+                .Select(item => item.Tag as IFileEntry)
+                .Where(file => file != null)
+                .Cast<IFileEntry>()
+                .ToArray();
+
+            if (checkedFiles.Length == 0)
+            {
+                MessageBox.Show("ファイルが選択されていません。");
+                return;
+            }
+
+            var result = folderBrowserDialog1.ShowDialog(this);
+            if (result == DialogResult.Cancel) return;
+
             await startExtractAsync(checkedFiles);
         }
         catch (Exception ex)
@@ -225,43 +226,56 @@ public partial class FormDiskImageTool : Form
         }
     }
 
-    async Task startExtractAsync(IEnumerable<IFileEntry> fileList)
+    private async Task startExtractAsync(IEnumerable<IFileEntry> files)
+    {
+        cancellationTokenSource = new CancellationTokenSource();
+
+        using var formProgress = createProgressForm(files.Count(), () => cancellationTokenSource.Cancel());
+        var reporter = formProgress.GetReporter();
+        formProgress.Show(this);
+
+        try
+        {
+            extractTask = startExtractTaskAsync(files, reporter, cancellationTokenSource.Token);
+            await extractTask;
+        }
+        catch (OperationCanceledException)
+        {
+            Debug.WriteLine("UI: operation canceled(OperationCanceledException catched)");
+        }
+        catch (Exception ex)
+        {
+            Debug.WriteLine($"UI: exception catched: {ex.Message}");
+            MessageBox.Show($"エラー: {ex.Message}");
+        }
+        finally
+        {
+            extractTask = null;
+            cancellationTokenSource?.Dispose();
+            cancellationTokenSource = null;
+        }
+
+        showExtractionResult(formProgress.Report);
+    }
+
+    async Task startExtractTaskAsync(
+        IEnumerable<IFileEntry> fileList,
+        Progress<ExtractReport> reporter,
+        CancellationToken token)
     {
         if (imageReader == null || fileSystem == null)
         {
             throw new InvalidOperationException("イメージが開かれていません");
         }
 
-        cancellationTokenSource = new CancellationTokenSource();
-
-        using var formProgress = createProgressForm(fileList.Count(), () => cancellationTokenSource.Cancel());
-        formProgress.Show(this);
-
-        try
-        {
-            var extractorService = new FileExtractorService(fileSystem);
-            var extractTask = extractorService.ExtractFilesAsync(
+        var extractorService = new FileExtractorService(fileSystem);
+        await Task.Run(() => extractorService.ExtractFilesAsync(
                 fileList,
                 folderBrowserDialog1.SelectedPath,
                 checkIsUTC.Checked,
-                cancellationTokenSource.Token,
-                formProgress.GetReporter());
-            this.extractTask = extractTask;
-            var result = await extractTask;
-
-            showExtractionResult(result);
-        }
-        catch (OperationCanceledException)
-        {
-            //showExtractionResult(result);
-            MessageBox.Show("キャンセルしました");
-        }
-        finally
-        {
-            cancellationTokenSource?.Dispose();
-            cancellationTokenSource = null;
-            extractTask = null;
-        }
+                token,
+                reporter)
+        , token);
     }
 
     private FormProgress createProgressForm(int maxCount, Action cancelAction)
@@ -286,8 +300,10 @@ public partial class FormDiskImageTool : Form
         return formProgress;
     }
 
-    private static void showExtractionResult(ExtractReport result)
+    private static void showExtractionResult(ExtractReport? result)
     {
+        if (result == null) return;
+
         var canceledMessage = result.IsCanceled ? "キャンセルしました。" : "";
         var successMessage = $"{result.SuccessCount}個のファイルを抽出しました。";
         var errorMessage = result.ErrorCount > 0 ? $"{result.ErrorCount}件のエラーがありました。" : "";
@@ -319,27 +335,25 @@ public partial class FormDiskImageTool : Form
             {
                 if (cancellationTokenSource != null)
                 {
-                    Debug.WriteLine("\ncancelling task");
+                    Debug.WriteLine("\nform closing: cancelling task");
                     cancellationTokenSource.Cancel();
                 }
 
                 // UIスレッドをブロックしないように非同期で待機
                 if (extractTask != null && !extractTask.IsCompleted)
                 {
-                    Debug.WriteLine("\nawaiting task");
+                    Debug.WriteLine("\nform closing: awaiting task");
                     await extractTask;
                 }
             }
             catch (OperationCanceledException)
             {
-                Debug.WriteLine("operation canceled");
+                Debug.WriteLine("\nform closing: operation canceled(OperationCanceledException catched)");
             }
 
             // close form
             Close();
         }
-
-        isClosing = true;
     }
 
     private void buttonFATInfo_Click(object sender, EventArgs e)
@@ -369,14 +383,12 @@ public partial class FormDiskImageTool : Form
         sortColumn = e.Column;
         lastSortOrder = sortOrder;
 
-        var files = getFiles();
-        updateListView(files);
+        updateListView();
     }
 
     private void checkIsUTC_Click(object sender, EventArgs e)
     {
-        var files = getFiles();
-        updateListView(files);
+        updateListView();
     }
 
     protected override void Dispose(bool disposing)
@@ -389,7 +401,9 @@ public partial class FormDiskImageTool : Form
         if (disposing)
         {
             imageReader?.Dispose();
+            imageReader = null;
             fileSystem?.Dispose();
+            fileSystem = null;
         }
 
         base.Dispose(disposing);

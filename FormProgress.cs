@@ -3,8 +3,9 @@ namespace DiskImageTool;
 public partial class FormProgress : Form
 {
     public event Action? CancelClicked;
+    public ExtractReport? Report { get; private set; }
 
-    Progress<ExtractReport>? reporter; // = new Progress<ExtractReport>(Report);
+    Progress<ExtractReport>? reporter;
 
     public FormProgress()
     {
@@ -54,6 +55,8 @@ public partial class FormProgress : Form
 
     void report(ExtractReport report)
     {
+        Report = report;
+
         if (IsDisposed) return;
 
         if (report.SuccessCount.HasValue) Value = report.SuccessCount.Value;
@@ -64,7 +67,7 @@ public partial class FormProgress : Form
             var total = $"{report.TotalCount.Value:N0}";
             var compBytes = $"{report.CompletedBytes.Value:N0}";
             var totalBytes = $"{report.TotalBytes.Value:N0}";
-            Message = $"({cur} / {total}) ({compBytes} / {totalBytes} bytes)";
+            Message = $"{cur} / {total} ({compBytes} / {totalBytes} bytes)";
         }
 
         if (report.CurrentFileName != null && report.CurrentFileLength.HasValue)

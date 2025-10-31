@@ -44,5 +44,5 @@ public interface IFileSystem : IDisposable
     /// <param name="file">ファイルシステム内のコピー元ファイル。</param>
     /// <param name="destFullPath">コピー先のフルパス。</param>
     /// <param name="isUTC">ファイルシステム内のファイルの日付がUTCかどうか。コピーの際にローカルタイムに変換されます。</param>
-    Task ExtractFile(IFileEntry file, string destFullPath, bool isUTC);
+    Task ExtractFile(IFileEntry file, string destFullPath, bool isUTC, CancellationToken cancelToken);
 }

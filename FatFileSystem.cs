@@ -1,3 +1,4 @@
+using System.Buffers.Binary;
 using System.ComponentModel;
 using System.Text;
 
@@ -180,20 +181,20 @@ public class FatFileSystem : IFileSystem
             var filename = (ext.Length > 0) ? string.Concat(basename, ".", ext) : basename;
 
             // write date/time
-            ushort time = BitConverter.ToUInt16(entrySpan[DirEntryOffsetTime..]);
-            ushort date = BitConverter.ToUInt16(entrySpan[DirEntryOffsetDate..]);
+            ushort time = BinaryPrimitives.ReadUInt16LittleEndian(entrySpan[DirEntryOffsetTime..]);
+            ushort date = BinaryPrimitives.ReadUInt16LittleEndian(entrySpan[DirEntryOffsetDate..]);
 
             DateTime writeDateTime = getFatDateTime(time, date, isUTC);
 
             // start cluster
             // 上位16bit。FAT32で有効。FAT12/16では使われない
-            uint firstH = BitConverter.ToUInt16(entrySpan[DirEntryOffsetFirstClusterHigh..]);
+            uint firstH = BinaryPrimitives.ReadUInt16LittleEndian(entrySpan[DirEntryOffsetFirstClusterHigh..]);
             // 下位16bit
-            uint firstL = BitConverter.ToUInt16(entrySpan[DirEntryOffsetFirstClusterLow..]);
+            uint firstL = BinaryPrimitives.ReadUInt16LittleEndian(entrySpan[DirEntryOffsetFirstClusterLow..]);
             uint firstCluster = (firstH << 16) | firstL;
 
             // file size
-            uint size = BitConverter.ToUInt32(entrySpan[DirEntryOffsetFileSize..]);
+            uint size = BinaryPrimitives.ReadUInt32LittleEndian(entrySpan[DirEntryOffsetFileSize..]);
 
             ent = new FatFileEntry(filename, firstCluster, writeDateTime, size);
         }
@@ -294,11 +295,11 @@ public class FatFileSystem : IFileSystem
         return OpenFile(ent);
     }
 
-    public async Task ExtractFile(IFileEntry file, string destFullPath, bool isUTC)
+    public async Task ExtractFile(IFileEntry file, string destFullPath, bool isUTC, CancellationToken cancelToken)
     {
         using var stream = OpenFile(file);
         using var outFile = new FileStream(destFullPath, FileMode.Create, FileAccess.Write);
-        await stream.CopyToAsync(outFile);
+        await stream.CopyToAsync(outFile, cancelToken);
         outFile.Close();
 
         if (isUTC)
@@ -307,7 +308,7 @@ public class FatFileSystem : IFileSystem
             File.SetLastWriteTime(destFullPath, file.WriteDateTime);
     }
 
-    public async Task ExtractFile(string path, string destFullPath, bool isUTC)
+    public async Task ExtractFile(string path, string destFullPath, bool isUTC, CancellationToken cancelToken)
     {
         if (rootDir == null) throw new InvalidOperationException("ルートディレクトリが開かれていません");
 
@@ -316,7 +317,7 @@ public class FatFileSystem : IFileSystem
 
         using var stream = OpenFile(ent);
         using var outFile = new FileStream(destFullPath, FileMode.Create, FileAccess.Write);
-        await stream.CopyToAsync(outFile);
+        await stream.CopyToAsync(outFile, cancelToken);
         outFile.Close();
 
         if (isUTC)
@@ -411,7 +412,7 @@ public class FatFileSystem : IFileSystem
         for (pos = 0; pos < fatSpan.Length; pos += 2)
         {
             //2bytesあたり1つのFATエントリ
-            ushort ent = BitConverter.ToUInt16(fatSpan.Slice(pos, 2));
+            ushort ent = BinaryPrimitives.ReadUInt16LittleEndian(fatSpan.Slice(pos, 2));
             fat.Add(ent);
         }
     }
@@ -426,7 +427,7 @@ public class FatFileSystem : IFileSystem
         for (pos = 0; pos < fatSpan.Length; pos += 4)
         {
             //4bytesあたり1つのFATエントリ
-            uint ent = BitConverter.ToUInt32(fatSpan.Slice(pos, 4));
+            uint ent = BinaryPrimitives.ReadUInt32LittleEndian(fatSpan.Slice(pos, 4));
             fat.Add(ent);
         }
     }
@@ -442,7 +443,7 @@ public class FatFileSystem : IFileSystem
 
         OEMName = Encoding.ASCII.GetString(bpbSpan[BpbOffsetOEMName..(BpbOffsetOEMName + BpbOEMNameLength)]);
 
-        BytesPerSector = BitConverter.ToUInt16(bpbSpan[BpbOffsetBytesPerSector..]);
+        BytesPerSector = BinaryPrimitives.ReadUInt16LittleEndian(bpbSpan[BpbOffsetBytesPerSector..]);
         if (BytesPerSector is not 512 and not 1024 and not 2048 and not 4096)
             throw new InvalidOperationException("セクタサイズが不正です");
 
@@ -450,23 +451,23 @@ public class FatFileSystem : IFileSystem
         SectorsPerCluster = bpbSpan[BpbOffsetSectorsPerCluster];
 
         // 14(2) reserved sector count
-        ReservedSectorCount = BitConverter.ToUInt16(bpbSpan[BpbOffsetReservedSectorCount..]);
+        ReservedSectorCount = BinaryPrimitives.ReadUInt16LittleEndian(bpbSpan[BpbOffsetReservedSectorCount..]);
 
         // 16(1) number of FATs
         NumFats = bpbSpan[BpbOffsetNumFats];
 
         // 17(2) root entries count
-        RootEntriesCount = BitConverter.ToUInt16(bpbSpan[BpbOffsetRootEntriesCount..]);
+        RootEntriesCount = BinaryPrimitives.ReadUInt16LittleEndian(bpbSpan[BpbOffsetRootEntriesCount..]);
 
         // 19(2) total sectors
-        TotalSector16 = BitConverter.ToUInt16(bpbSpan[BpbOffsetTotalSector16..]);
+        TotalSector16 = BinaryPrimitives.ReadUInt16LittleEndian(bpbSpan[BpbOffsetTotalSector16..]);
 
         // 22(2) FAT size(number of sector)
-        FatSize16 = BitConverter.ToUInt16(bpbSpan[BpbOffsetFatSize16..]);
+        FatSize16 = BinaryPrimitives.ReadUInt16LittleEndian(bpbSpan[BpbOffsetFatSize16..]);
 
-        TotalSector32 = BitConverter.ToUInt32(bpbSpan[BpbOffsetTotalSector32..]);
+        TotalSector32 = BinaryPrimitives.ReadUInt32LittleEndian(bpbSpan[BpbOffsetTotalSector32..]);
 
-        VolumeID = BitConverter.ToUInt32(bpbSpan[BpbOffsetVolID..]);
+        VolumeID = BinaryPrimitives.ReadUInt32LittleEndian(bpbSpan[BpbOffsetVolID..]);
 
         VolumeLabel = sjisEncoding.GetString(bpbSpan[BpbOffsetVolLabel..(BpbOffsetVolLabel + BpbVolLabelLength)]).TrimEnd();
         FatFileSystemType = Encoding.ASCII.GetString(bpbSpan[BpbOffsetFSType..(BpbOffsetFSType + BpbFSTypeLength)]);

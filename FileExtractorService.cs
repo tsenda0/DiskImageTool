@@ -1,3 +1,5 @@
+using System.Diagnostics;
+
 namespace DiskImageTool;
 
 /// <summary>
@@ -7,7 +9,13 @@ public class FileExtractorService(IFileSystem fileSystem)
 {
     private readonly IFileSystem fileSystem = fileSystem;
 
-    public Task<ExtractReport> ExtractFilesAsync(
+    [Conditional("DEBUG")]
+    static void debugDelay()
+    {
+        Thread.Sleep(10);
+    }
+
+    public async Task ExtractFilesAsync(
         IEnumerable<IFileEntry> files,
         string destinationPath,
         bool isUTC,
@@ -24,43 +32,34 @@ public class FileExtractorService(IFileSystem fileSystem)
             IsCanceled = false
         };
 
-        return Task.Run(async () =>
+        foreach (var file in files)
         {
-            foreach (var file in files)
+            token.ThrowIfCancellationRequested();
+
+            try
             {
-                if (token.IsCancellationRequested)
-                {
-                    report.IsCanceled = true;
-                    progress.Report(report);
-                    token.ThrowIfCancellationRequested();
-                }
+                report.CurrentFileName = file.Name;
+                report.CurrentFileLength = file.Length;
+                progress.Report(report);
 
-                try
-                {
-                    report.CurrentFileName = file.Name;
-                    report.CurrentFileLength = file.Length;
-                    progress.Report(report);
+                var outPath = Path.Combine(destinationPath, file.Name);
+                await fileSystem.ExtractFile(file, outPath, isUTC, token);
 
-                    var outPath = Path.Combine(destinationPath, file.Name);
-                    await fileSystem.ExtractFile(file, outPath, isUTC);
+                // 成功後に加算
+                report.SuccessCount++;
+                report.CompletedBytes += file.Length;
 
-                    // 成功後に加算
-                    report.SuccessCount++;
-                    report.CompletedBytes += file.Length;
-
-                    // DEBUG
-                    Thread.Sleep(1);
-                }
-                catch (Exception)
-                {
-                    report.ErrorCount++;
-                }
+                // DEBUG
+                debugDelay();
             }
+            catch (Exception)
+            {
+                report.ErrorCount++;
+            }
+        }
 
-            // 最終進捗報告
-            progress.Report(report);
-
-            return report;
-        }, token);
+        // 最終進捗報告
+        report.IsCanceled = token.IsCancellationRequested;
+        progress.Report(report);
     }
 }

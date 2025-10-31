@@ -40,25 +40,25 @@ namespace DiskImageTool
             propertyGrid1.Dock = DockStyle.Fill;
             propertyGrid1.Location = new Point(0, 0);
             propertyGrid1.Name = "propertyGrid1";
-            propertyGrid1.Size = new Size(304, 353);
+            propertyGrid1.Size = new Size(304, 481);
             propertyGrid1.TabIndex = 0;
             propertyGrid1.ToolbarVisible = false;
             // 
             // panel1
             // 
             panel1.Controls.Add(buttonClose);
-            panel1.Dock = DockStyle.Bottom;
-            panel1.Location = new Point(0, 353);
+            panel1.Dock = DockStyle.Right;
+            panel1.Location = new Point(304, 0);
             panel1.Name = "panel1";
-            panel1.Size = new Size(304, 48);
+            panel1.Size = new Size(120, 481);
             panel1.TabIndex = 1;
             // 
             // buttonClose
             // 
             buttonClose.DialogResult = DialogResult.OK;
-            buttonClose.Location = new Point(92, 8);
+            buttonClose.Location = new Point(12, 12);
             buttonClose.Name = "buttonClose";
-            buttonClose.Size = new Size(120, 32);
+            buttonClose.Size = new Size(96, 32);
             buttonClose.TabIndex = 0;
             buttonClose.Text = "閉じる";
             buttonClose.UseVisualStyleBackColor = true;
@@ -67,7 +67,7 @@ namespace DiskImageTool
             // 
             AutoScaleDimensions = new SizeF(7F, 15F);
             AutoScaleMode = AutoScaleMode.Font;
-            ClientSize = new Size(304, 401);
+            ClientSize = new Size(424, 481);
             Controls.Add(propertyGrid1);
             Controls.Add(panel1);
             Name = "FormFileSystemInfo";
