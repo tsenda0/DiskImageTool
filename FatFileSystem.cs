@@ -294,11 +294,11 @@ public class FatFileSystem : IFileSystem
         return OpenFile(ent);
     }
 
-    public void ExtractFile(IFileEntry file, string destFullPath, bool isUTC)
+    public async Task ExtractFile(IFileEntry file, string destFullPath, bool isUTC)
     {
         using var stream = OpenFile(file);
         using var outFile = new FileStream(destFullPath, FileMode.Create, FileAccess.Write);
-        stream.CopyTo(outFile);
+        await stream.CopyToAsync(outFile);
         outFile.Close();
 
         if (isUTC)
@@ -306,7 +306,8 @@ public class FatFileSystem : IFileSystem
         else
             File.SetLastWriteTime(destFullPath, file.WriteDateTime);
     }
-    public void ExtractFile(string path, string destFullPath, bool isUTC)
+
+    public async Task ExtractFile(string path, string destFullPath, bool isUTC)
     {
         if (rootDir == null) throw new InvalidOperationException("ルートディレクトリが開かれていません");
 
@@ -315,7 +316,7 @@ public class FatFileSystem : IFileSystem
 
         using var stream = OpenFile(ent);
         using var outFile = new FileStream(destFullPath, FileMode.Create, FileAccess.Write);
-        stream.CopyTo(outFile);
+        await stream.CopyToAsync(outFile);
         outFile.Close();
 
         if (isUTC)

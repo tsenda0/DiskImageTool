@@ -174,8 +174,7 @@ public partial class FormDiskImageTool : Form
 
         try
         {
-            var res = await startExtractAsync(files);
-            showExtractionResult(res);
+            await startExtractAsync(files);
         }
         catch (Exception ex)
         {
@@ -218,8 +217,7 @@ public partial class FormDiskImageTool : Form
 
         try
         {
-            var res = await startExtractAsync(checkedFiles);
-            showExtractionResult(res);
+            await startExtractAsync(checkedFiles);
         }
         catch (Exception ex)
         {
@@ -227,20 +225,20 @@ public partial class FormDiskImageTool : Form
         }
     }
 
-    async Task<ExtractReport> startExtractAsync(IEnumerable<IFileEntry> fileList)
+    async Task startExtractAsync(IEnumerable<IFileEntry> fileList)
     {
         if (imageReader == null || fileSystem == null)
         {
             throw new InvalidOperationException("イメージが開かれていません");
         }
 
+        cancellationTokenSource = new CancellationTokenSource();
+
+        using var formProgress = createProgressForm(fileList.Count(), () => cancellationTokenSource.Cancel());
+        formProgress.Show(this);
+
         try
         {
-            cancellationTokenSource = new CancellationTokenSource();
-
-            using var formProgress = createProgressForm(fileList.Count(), () => cancellationTokenSource.Cancel());
-            formProgress.Show(this);
-
             var extractorService = new FileExtractorService(fileSystem);
             var extractTask = extractorService.ExtractFilesAsync(
                 fileList,
@@ -251,7 +249,12 @@ public partial class FormDiskImageTool : Form
             this.extractTask = extractTask;
             var result = await extractTask;
 
-            return result;
+            showExtractionResult(result);
+        }
+        catch (OperationCanceledException)
+        {
+            //showExtractionResult(result);
+            MessageBox.Show("キャンセルしました");
         }
         finally
         {
@@ -294,30 +297,49 @@ public partial class FormDiskImageTool : Form
         MessageBox.Show(message);
     }
 
+    bool isClosing;
+
     private async void formDiskImageTool_FormClosing(object sender, FormClosingEventArgs e)
     {
+        if (isClosing) return;
+
         if (extractTask != null)
         {
+            e.Cancel = true;
+
             var res = MessageBox.Show("ファイルを抽出中です。終了してよろしいですか?", "終了", MessageBoxButtons.OKCancel);
             if (res == DialogResult.Cancel)
             {
-                e.Cancel = true;
                 return;
             }
 
-            if (cancellationTokenSource != null)
+            isClosing = true;
+
+            try
             {
-                Debug.WriteLine("\ncancelling task");
-                cancellationTokenSource.Cancel();
+                if (cancellationTokenSource != null)
+                {
+                    Debug.WriteLine("\ncancelling task");
+                    cancellationTokenSource.Cancel();
+                }
+
+                // UIスレッドをブロックしないように非同期で待機
+                if (extractTask != null && !extractTask.IsCompleted)
+                {
+                    Debug.WriteLine("\nawaiting task");
+                    await extractTask;
+                }
+            }
+            catch (OperationCanceledException)
+            {
+                Debug.WriteLine("operation canceled");
             }
 
-            // UIスレッドをブロックしないように非同期で待機
-            if (extractTask != null && !extractTask.IsCompleted)
-            {
-                Debug.WriteLine("\nawaiting task");
-                await extractTask;
-            }
+            // close form
+            Close();
         }
+
+        isClosing = true;
     }
 
     private void buttonFATInfo_Click(object sender, EventArgs e)
