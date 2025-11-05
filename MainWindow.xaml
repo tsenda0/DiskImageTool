@@ -4,6 +4,7 @@
         xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
         xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
         xmlns:local="clr-namespace:DiskImageTool"
+        xmlns:xctk="http://schemas.xceed.com/wpf/xaml/toolkit"
         mc:Ignorable="d"
         Title="MainWindow" Height="620" Width="584" WindowStyle="ThreeDBorderWindow">
     <Window.Background>
@@ -11,59 +12,69 @@
     </Window.Background>
     <Grid Margin="8,8,8,8">
         <Grid.RowDefinitions>
-            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="40"/>
             <RowDefinition Height="*"/>
+            <RowDefinition Height="24"/>
         </Grid.RowDefinitions>
 
-        <Grid Height="48" VerticalAlignment="Top" Margin="0,0,0,0">
+        <Grid Margin="0,0,0,4">
             <Grid.ColumnDefinitions>
                 <ColumnDefinition Width="*"/>
                 <ColumnDefinition Width="112" />
             </Grid.ColumnDefinitions>
-            <Button x:Name="button" Content="ファイル選択..." Grid.Column="1" Margin="8,0,0,0" Click="selectImage_Click" />
-            <Border BorderBrush="Black" BorderThickness="1">
-                <Label x:Name="label" Content="" HorizontalContentAlignment="Stretch" VerticalContentAlignment="Center">
-                    <Label.Background>
-                        <SolidColorBrush Color="{DynamicResource {x:Static SystemColors.ControlLightLightColorKey}}"/>
-                    </Label.Background>
-                </Label>
-            </Border>
+            <Label x:Name="labelFileName" Content="" HorizontalContentAlignment="Stretch" VerticalContentAlignment="Center" BorderThickness="1,1,1,1" Margin="0,0,4,0">
+                <Label.BorderBrush>
+                    <SolidColorBrush Color="#FF828790"/>
+                </Label.BorderBrush>
+                <Label.Background>
+                    <SolidColorBrush Color="{DynamicResource {x:Static SystemColors.ControlLightLightColorKey}}"/>
+                </Label.Background>
+            </Label>
+            <Button x:Name="openImage" Content="ファイル選択..." Grid.Column="1" Margin="4,0,0,0" Click="selectImage_Click" />
         </Grid>
 
-        <Grid Grid.Row="1" Margin="0,8,0,0">
+        <Grid Grid.Row="1" Margin="0,4,0,4">
             <Grid.ColumnDefinitions>
                 <ColumnDefinition Width="*"/>
                 <ColumnDefinition Width="112"/>
             </Grid.ColumnDefinitions>
-            <ListView x:Name="listView" VirtualizingStackPanel.VirtualizationMode="Standard">
-                <ListView.View>
-                    <GridView>
-                        <GridViewColumn Header="選択" Width="40">
-                            <GridViewColumn.CellTemplate>
-                                <DataTemplate>
-                                    <CheckBox />
-                                </DataTemplate>
-                            </GridViewColumn.CellTemplate>
-                        </GridViewColumn>
-                        <GridViewColumn Header="名前" Width="Auto">
-                            <GridViewColumn.CellTemplate>
-                                <DataTemplate>
-                                    <TextBlock Text="{Binding Name}"  Width="112" TextAlignment="Left" HorizontalAlignment="Stretch" />
-                                </DataTemplate>
-                            </GridViewColumn.CellTemplate>
-                        </GridViewColumn>
-                        <GridViewColumn Header="サイズ" Width="Auto">
-                            <GridViewColumn.CellTemplate>
-                                <DataTemplate>
-                                    <TextBlock Text="{Binding Length, StringFormat={}{0:N0}}"  Width="88" TextAlignment="Right" HorizontalAlignment="Stretch" />
-                                </DataTemplate>
-                            </GridViewColumn.CellTemplate>
-                        </GridViewColumn>
-                        <GridViewColumn x:Name="columnFileDate" Header="日付" Width="128" DisplayMemberBinding="{Binding WriteDateTime, StringFormat={}{0:yyyy-MM-dd HH:mm:ss}}"/>
-                    </GridView>
-                </ListView.View>
-            </ListView>
-            <Grid Grid.Column="1" Height="Auto" Margin="8,0,0,0" Width="Auto">
+            <TabControl x:Name="tabControl" Margin="0,0,4,0">
+                <TabItem Header="ファイル一覧" Margin="0,0,0,0" Padding="12,4,12,4">
+                    <ListView x:Name="listViewFiles" VirtualizingStackPanel.VirtualizationMode="Standard">
+                        <ListView.View>
+                            <GridView>
+                                <GridViewColumn Header="選択" Width="40">
+                                    <GridViewColumn.CellTemplate>
+                                        <DataTemplate>
+                                            <CheckBox />
+                                        </DataTemplate>
+                                    </GridViewColumn.CellTemplate>
+                                </GridViewColumn>
+                                <GridViewColumn Header="名前" Width="Auto">
+                                    <GridViewColumn.CellTemplate>
+                                        <DataTemplate>
+                                            <TextBlock Text="{Binding Name}"  Width="112" TextAlignment="Left" HorizontalAlignment="Stretch" />
+                                        </DataTemplate>
+                                    </GridViewColumn.CellTemplate>
+                                </GridViewColumn>
+                                <GridViewColumn Header="サイズ" Width="Auto">
+                                    <GridViewColumn.CellTemplate>
+                                        <DataTemplate>
+                                            <TextBlock Text="{Binding Length, StringFormat={}{0:N0}}"  Width="88" TextAlignment="Right" HorizontalAlignment="Stretch" />
+                                        </DataTemplate>
+                                    </GridViewColumn.CellTemplate>
+                                </GridViewColumn>
+                                <GridViewColumn x:Name="columnFileDate" Header="日付" Width="128" DisplayMemberBinding="{Binding WriteDateTime, StringFormat={}{0:yyyy-MM-dd HH:mm:ss}}"/>
+                            </GridView>
+                        </ListView.View>
+                    </ListView>
+                </TabItem>
+                <TabItem Header="ファイルシステム情報" Padding="8,4,8,4" Margin="0,0,0,0">
+                    <xctk:PropertyGrid x:Name="propertyGrid" Grid.Row="3" ShowSearchBox="False" ShowSortOptions="False" IsMiscCategoryLabelHidden="True"/>
+                </TabItem>
+            </TabControl>
+
+            <Grid Grid.Column="1" Height="Auto" Margin="4,0,0,0" Width="Auto">
                 <Grid.RowDefinitions>
                     <RowDefinition Height="56"/>
                     <RowDefinition Height="56"/>
@@ -71,7 +82,7 @@
                     <RowDefinition Height="*"/>
                     <RowDefinition Height="56"/>
                 </Grid.RowDefinitions>
-                <Button Content="全て抽出" Height="48" Click="extractAll_Click" VerticalAlignment="Center" />
+                <Button x:Name="extractAll" Content="全て抽出" Height="48" Click="extractAll_Click" VerticalAlignment="Center" />
                 <Button x:Name="extractChecked" Grid.Row="1" VerticalAlignment="Center" Height="48" Click="extractChecked_Click">
                     <TextBlock Text="チェックした
                                ファイルを抽出" TextWrapping="Wrap" TextAlignment="Center" VerticalAlignment="Center" />
@@ -82,5 +93,8 @@
                 <Button x:Name="buttonClose" Content="閉じる" Margin="0,0,0,0" Grid.Row="4" VerticalAlignment="Center" Height="48" Click="buttonClose_Click"/>
             </Grid>
         </Grid>
+        <StatusBar Grid.Row="2" VerticalContentAlignment="Stretch" HorizontalContentAlignment="Stretch">
+            <TextBox x:Name="textBoxStatus" TextWrapping="Wrap" Text="status" Background="{x:Null}" BorderBrush="{x:Null}" VerticalContentAlignment="Center" Focusable="False" IsHitTestVisible="False" BorderThickness="0,0,0,0"/>
+        </StatusBar>
     </Grid>
 </Window>

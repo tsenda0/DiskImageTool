@@ -26,7 +26,9 @@ public partial class MainWindow : Window
         Closed += mainWindow_Closed;
         checkBoxIsUTC.Click += checkBoxIsUTC_Click;
         IFileEntry[] data = [];
-        listView.ItemsSource = data;
+
+        updateFileName();
+        updateListView(data);
     }
 
     private async void mainWindow_Closing(object? sender, System.ComponentModel.CancelEventArgs e)
@@ -56,7 +58,7 @@ public partial class MainWindow : Window
     {
         if (fileSystem == null) return;
 
-        rootEntry = fileSystem.GetRoot(checkBoxIsUTC.IsChecked.HasValue && checkBoxIsUTC.IsChecked.Value);
+        rootEntry = fileSystem.GetRoot(checkBoxIsUTC.IsChecked == true);
         updateListView(rootEntry.SubEntries);
     }
 
@@ -108,7 +110,7 @@ public partial class MainWindow : Window
 
         var res = dialog.ShowDialog(this);
 
-        if (!res.HasValue || !res.Value) return;
+        if (res != true) return;
 
         try
         {
@@ -123,7 +125,8 @@ public partial class MainWindow : Window
             {
                 FileSystemFactory factory = new FileSystemFactory();
                 fileSystem = factory.Create(imageReader, FileSystemType.FAT);
-                rootEntry = fileSystem.GetRoot(checkBoxIsUTC.IsChecked.HasValue && checkBoxIsUTC.IsChecked.Value);
+                rootEntry = fileSystem.GetRoot(checkBoxIsUTC.IsChecked == true);
+
                 updateFileName(path);
                 updateListView(rootEntry.SubEntries);
             }
@@ -134,14 +137,19 @@ public partial class MainWindow : Window
         }
     }
 
-    void updateFileName(string path)
+    void updateFileName(string? path = null)
     {
-        label.Content = path;
+        labelFileName.Content = path ?? "ファイルを選択してください";
+        labelFileName.Foreground = path != null
+            ? SystemColors.ControlTextBrush
+            : SystemColors.GrayTextBrush;
     }
 
     void updateListView(IEnumerable<IFileEntry>? files)
     {
-        listView.ItemsSource = files;
+        listViewFiles.ItemsSource = files;
+        textBoxStatus.Text = $"{files?.Count():N0}個のファイル / {files?.Sum(f => f.Length):N0} bytes";
+        propertyGrid.SelectedObject = fileSystem;
     }
 
     private async void extractAll_Click(object sender, RoutedEventArgs e)
@@ -158,7 +166,7 @@ public partial class MainWindow : Window
         };
 
         var ofdResult = ofd.ShowDialog(this);
-        if (!ofdResult.HasValue || !ofdResult.Value) return;
+        if (ofdResult != true) return;
         var destPath = ofd.FolderName;
 
         await startExtractAsync(rootEntry.SubEntries, destPath);
@@ -173,14 +181,14 @@ public partial class MainWindow : Window
         }
 
         List<IFileEntry> checkFiles = [];
-        for (int i = 0; i < listView.Items.Count; i++)
+        for (int i = 0; i < listViewFiles.Items.Count; i++)
         {
-            if (listView.ItemContainerGenerator.ContainerFromIndex(i) is not ListViewItem item) continue;
+            if (listViewFiles.ItemContainerGenerator.ContainerFromIndex(i) is not ListViewItem item) continue;
 
             var cb = FindVisualChildren<CheckBox>(item).FirstOrDefault();
-            if (cb != null && listView.Items[i] is IFileEntry entry)
+            if (cb != null && listViewFiles.Items[i] is IFileEntry entry)
             {
-                if (cb.IsChecked.HasValue && cb.IsChecked.Value)
+                if (cb.IsChecked == true)
                 {
                     checkFiles.Add(entry);
                 }
@@ -199,7 +207,7 @@ public partial class MainWindow : Window
         };
 
         var ofdResult = ofd.ShowDialog(this);
-        if (!ofdResult.HasValue || !ofdResult.Value) return;
+        if (ofdResult != true) return;
         var destPath = ofd.FolderName;
 
         await startExtractAsync(checkFiles, destPath);
@@ -223,7 +231,7 @@ public partial class MainWindow : Window
         try
         {
             (extractTask, cancellationTokenSource) = svc.ExtractFilesTaskAsync(
-                files, destPath, fileSystem, checkBoxIsUTC.IsChecked.HasValue && checkBoxIsUTC.IsChecked.Value, progress);
+                files, destPath, fileSystem, checkBoxIsUTC.IsChecked == true, progress);
             var rep = await extractTask;
 
             Debug.WriteLine("startExtractAsync: extract task exited");
