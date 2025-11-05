@@ -9,16 +9,47 @@ namespace DiskImageTool;
 /// <summary>
 /// Interaction logic for MainWindow.xaml
 /// </summary>
-public partial class MainWindow : Window, IDisposable
+public partial class MainWindow : Window
 {
+    IFileSystem? fileSystem;
+    IImageReader? imageReader;
+    IFileEntry? rootEntry;
+    CancellationTokenSource? cancellationTokenSource;
+    Task<ExtractReport>? extractTask;
+    bool closing;
+
     public MainWindow()
     {
         InitializeComponent();
 
         Closing += mainWindow_Closing;
+        Closed += mainWindow_Closed;
         checkBoxIsUTC.Click += checkBoxIsUTC_Click;
         IFileEntry[] data = [];
         listView.ItemsSource = data;
+    }
+
+    private async void mainWindow_Closing(object? sender, System.ComponentModel.CancelEventArgs e)
+    {
+        Debug.WriteLine("Closing: closing window");
+
+        if (closing) return;
+
+        if (extractTask != null)
+        {
+            closing = true;
+            e.Cancel = true;
+            await cancelExtractTask();
+            Close();
+        }
+    }
+
+    private void mainWindow_Closed(object? sender, EventArgs e)
+    {
+        Debug.WriteLine("Closed: window closed");
+
+        cancellationTokenSource?.Dispose();
+        cancellationTokenSource = null;
     }
 
     private void checkBoxIsUTC_Click(object sender, RoutedEventArgs e)
@@ -29,67 +60,42 @@ public partial class MainWindow : Window, IDisposable
         updateListView(rootEntry.SubEntries);
     }
 
-    bool closing;
-    private async void mainWindow_Closing(object? sender, System.ComponentModel.CancelEventArgs e)
-    {
-        if (closing) return;
-
-        Debug.WriteLine("Closing: closing window");
-
-        closing = true;
-
-        if (extractTask != null) e.Cancel = true;
-        await cancelExtractTask();
-    }
-
     async Task<ExtractReport?> cancelExtractTask()
     {
-        if (extractTask != null)
+        if (extractTask == null) return null;
+
+        try
         {
-            try
+            if (cancellationTokenSource != null)
             {
-                if (cancellationTokenSource != null)
-                {
-                    Debug.WriteLine("cancelExtractTask: cancelling extract task:");
-                    cancellationTokenSource?.Cancel();
-                }
+                Debug.WriteLine("cancelExtractTask: cancelling extract task:");
+                cancellationTokenSource.Cancel();
+            }
 
-                if (extractTask != null)
-                {
-                    var res = await extractTask;
-                    Debug.WriteLine("cancelExtractTask: extract task exited");
-                    return res;
-                }
-            }
-            catch (OperationCanceledException)
-            {
-                //canceled
-                Debug.WriteLine("cancelExtractTask: extract task cancelled");
-            }
-            catch (Exception ex)
-            {
-                Debug.WriteLine($"cancelExtractTask: exception catched: {ex.Message}");
-                MessageBox.Show($"エラー: {ex.Message}");
-            }
-            finally
-            {
-                Close();
+            var res = await extractTask;
+            Debug.WriteLine("cancelExtractTask: extract task exited");
+            return res;
+        }
+        catch (OperationCanceledException)
+        {
+            //canceled
+            Debug.WriteLine("cancelExtractTask: extract task cancelled");
+        }
+        catch (Exception ex)
+        {
+            Debug.WriteLine($"cancelExtractTask: caught exception: {ex.Message}");
+            MessageBox.Show($"エラー: {ex.Message}");
+        }
+        finally
+        {
+            cancellationTokenSource?.Dispose();
+            cancellationTokenSource = null;
 
-                cancellationTokenSource?.Dispose();
-                cancellationTokenSource = null;
-
-                extractTask = null;
-            }
+            extractTask = null;
         }
 
         return null;
     }
-
-    IFileSystem? fileSystem;
-    IImageReader? imageReader;
-    IFileEntry? rootEntry;
-    CancellationTokenSource? cancellationTokenSource;
-    Task<ExtractReport>? extractTask;
 
     private void selectImage_Click(object sender, RoutedEventArgs e)
     {
@@ -155,114 +161,7 @@ public partial class MainWindow : Window, IDisposable
         if (!ofdResult.HasValue || !ofdResult.Value) return;
         var destPath = ofd.FolderName;
 
-        ExtractReport? rep = null;
-        try
-        {
-            rep = await startExtractAsync(rootEntry.SubEntries, destPath);
-
-            Debug.WriteLine("extractAll: extract task exited");
-            if (rep != null && !closing)
-            {
-                var canceled = rep.IsCanceled ? "キャンセルしました。" : "";
-
-                MessageBox.Show(this,
-                    canceled + $"{rep.SuccessCount}個のファイルを抽出しました。"
-                    + (rep.ErrorCount > 0 ? $"({rep.ErrorCount}のエラーがありました。)" : ""));
-            }
-        }
-        catch (Exception ex)
-        {
-            Debug.WriteLine($"extractAll: exception catched: {ex.Message}");
-
-            if (rep != null)
-            {
-                MessageBox.Show(this,
-                    $"エラー: {ex.Message}"
-                    + $"({rep.SuccessCount}個のファイルを抽出しました。"
-                    + (rep.ErrorCount > 0 ? $"{rep.ErrorCount}のエラーがありました。" : "")
-                    + ")");
-            }
-            else
-            {
-                MessageBox.Show(this,
-                    $"エラー: {ex.Message}");
-            }
-        }
-        finally
-        {
-            extractTask = null;
-        }
-    }
-
-    ProgressWindow createProgress()
-    {
-        var progWindow = new ProgressWindow
-        {
-            Owner = this
-        };
-
-        progWindow.Canceled += (s, e) => cancellationTokenSource?.Cancel();
-
-        return progWindow;
-    }
-
-    private async Task<ExtractReport?> startExtractAsync(IEnumerable<IFileEntry> files, string destPath)
-    {
-        if (fileSystem == null)
-        {
-            //MessageBox.Show(this, "イメージが開かれていません");
-            return null;
-        }
-
-        cancellationTokenSource = new CancellationTokenSource();
-        FileExtractorService svc = new FileExtractorService(fileSystem);
-
-        var progWindow = createProgress();
-        var prog = progWindow.GetReporter();
-        prog.Report(null);
-        progWindow.Show();
-
-        try
-        {
-            extractTask = Task.Run(
-                async () => await svc.ExtractFilesAsync(files, destPath, false, cancellationTokenSource.Token, prog));
-            var res = await extractTask;
-
-            Debug.WriteLine("startExtract: extraact task exited");
-
-            return res;
-        }
-        catch (OperationCanceledException)
-        {
-            Debug.WriteLine("startExtract: extract task cancelled");
-            if (progWindow?.Progress != null) progWindow.Progress.IsCanceled = true;
-        }
-        finally
-        {
-            progWindow.Close();
-
-            cancellationTokenSource?.Dispose();
-            cancellationTokenSource = null;
-
-            extractTask = null;
-        }
-
-        return progWindow.Progress;
-    }
-
-    public static IEnumerable<T> FindVisualChildren<T>(DependencyObject root) where T : DependencyObject
-    {
-        if (root == null) yield break;
-
-        for (int i = 0; i < VisualTreeHelper.GetChildrenCount(root); i++)
-        {
-            var child = VisualTreeHelper.GetChild(root, i);
-            if (child is T match)
-                yield return match;
-
-            foreach (var descendant in FindVisualChildren<T>(child))
-                yield return descendant;
-        }
+        await startExtractAsync(rootEntry.SubEntries, destPath);
     }
 
     private async void extractChecked_Click(object sender, RoutedEventArgs e)
@@ -303,62 +202,108 @@ public partial class MainWindow : Window, IDisposable
         if (!ofdResult.HasValue || !ofdResult.Value) return;
         var destPath = ofd.FolderName;
 
-        ExtractReport? rep = null;
+        await startExtractAsync(checkFiles, destPath);
+    }
+
+    private async Task startExtractAsync(IEnumerable<IFileEntry> files, string destPath)
+    {
+        if (fileSystem == null)
+        {
+            MessageBox.Show(this, "イメージが開かれていません");
+            return;
+        }
+
+        using FileExtractorService svc = new FileExtractorService();
+        var progWindow = createProgress();
+        progWindow.Owner = this;
+        var progress = progWindow.GetReporter();
+        progress.Report(null);
+        progWindow.Show();
+
         try
         {
-            rep = await startExtractAsync(checkFiles, destPath);
+            (extractTask, cancellationTokenSource) = svc.ExtractFilesTaskAsync(
+                files, destPath, fileSystem, checkBoxIsUTC.IsChecked.HasValue && checkBoxIsUTC.IsChecked.Value, progress);
+            var rep = await extractTask;
 
-            Debug.WriteLine("extractAll: extract task exited");
-            if (rep != null && !closing)
+            Debug.WriteLine("startExtractAsync: extract task exited");
+
+            if (rep != null)
             {
-                var canceled = rep.IsCanceled ? "キャンセルしました。" : "";
+                if (closing) return;
 
+                var canceled = rep.IsCanceled ? "キャンセルしました。\n" : "";
                 MessageBox.Show(this,
                     canceled + $"{rep.SuccessCount}個のファイルを抽出しました。"
                     + (rep.ErrorCount > 0 ? $"({rep.ErrorCount}のエラーがありました。)" : ""));
             }
+            else
+            {
+                MessageBox.Show(this, "エラーが発生しました。");
+            }
+        }
+        catch (OperationCanceledException)
+        {
+            Debug.WriteLine("startExtractAsync: extract task cancelled");
+            if (closing) return;
+
+            var msg =
+                progWindow.Progress != null
+                    ? ($"{progWindow.Progress.SuccessCount}個のファイルを抽出しました。"
+                        + (progWindow.Progress.ErrorCount > 0 ? $"({progWindow.Progress.ErrorCount}のエラーがありました。)" : ""))
+                    : "";
+            MessageBox.Show(this, "キャンセルしました。\n" + msg);
         }
         catch (Exception ex)
         {
-            Debug.WriteLine($"extractAll: exception catched: {ex.Message}");
+            Debug.WriteLine($"startExtractAsync: exception catched: {ex.Message}");
 
-            if (rep != null)
-            {
-                MessageBox.Show(this,
-                    $"エラー: {ex.Message}"
-                    + $"({rep.SuccessCount}個のファイルを抽出しました。"
-                    + (rep.ErrorCount > 0 ? $"{rep.ErrorCount}のエラーがありました。" : "")
-                    + ")");
-            }
-            else
-            {
-                MessageBox.Show(this,
-                    $"エラー: {ex.Message}");
-            }
+            var msg =
+                progWindow.Progress != null
+                    ? ($"{progWindow.Progress.SuccessCount}個のファイルを抽出しました。"
+                        + (progWindow.Progress.ErrorCount > 0 ? $"({progWindow.Progress.ErrorCount}のエラーがありました。)" : ""))
+                    : "";
+            MessageBox.Show(this,
+                $"エラーが発生しました: {ex.Message}\n" + msg);
         }
         finally
         {
+            Debug.WriteLine($"startExtractAsync: disposing");
+
+            progWindow.Close();
+
+            cancellationTokenSource?.Dispose();
+            cancellationTokenSource = null;
+
             extractTask = null;
+        }
+    }
+    ProgressWindow createProgress()
+    {
+        var progWindow = new ProgressWindow();
+
+        progWindow.Canceled += (s, e) => cancellationTokenSource?.Cancel();
+
+        return progWindow;
+    }
+
+    public static IEnumerable<T> FindVisualChildren<T>(DependencyObject root) where T : DependencyObject
+    {
+        if (root == null) yield break;
+
+        for (int i = 0; i < VisualTreeHelper.GetChildrenCount(root); i++)
+        {
+            var child = VisualTreeHelper.GetChild(root, i);
+            if (child is T match)
+                yield return match;
+
+            foreach (var descendant in FindVisualChildren<T>(child))
+                yield return descendant;
         }
     }
 
     private void buttonClose_Click(object sender, RoutedEventArgs e)
     {
         Close();
-    }
-
-    protected virtual void Dispose(bool disposing)
-    {
-        if (disposing)
-        {
-            cancellationTokenSource?.Dispose();
-            cancellationTokenSource = null;
-        }
-    }
-
-    public void Dispose()
-    {
-        Dispose(true);
-        GC.SuppressFinalize(this);
     }
 }

@@ -1,3 +1,4 @@
+using System.ComponentModel;
 using System.Windows;
 
 namespace DiskImageTool;
@@ -9,6 +10,12 @@ public partial class ProgressWindow : Window
     public ProgressWindow()
     {
         InitializeComponent();
+        Closing += progressWindow_Closing;
+    }
+
+    private void progressWindow_Closing(object? sender, CancelEventArgs e)
+    {
+        Canceled?.Invoke(this, EventArgs.Empty);
     }
 
     public event Action<object, EventArgs>? Canceled;
