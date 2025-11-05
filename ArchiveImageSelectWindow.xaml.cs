@@ -11,6 +11,17 @@ public partial class ArchiveImageSelectWindpw : Window, IFileSelectDialog
     {
         InitializeComponent();
         Owner = owner;
+
+        listBox.MouseDoubleClick += listBox_MouseDoubleClick;
+    }
+
+    private void listBox_MouseDoubleClick(object sender, System.Windows.Input.MouseButtonEventArgs e)
+    {
+        if (listBox.SelectedItem != null)
+        {
+            DialogResult = true;
+            Close();
+        }
     }
 
     //IEnumerable<string> Files { get; set; } = [];
@@ -21,13 +32,12 @@ public partial class ArchiveImageSelectWindpw : Window, IFileSelectDialog
     {
         listBox.ItemsSource = files;
         bool? res = ShowDialog();
-        if (res.HasValue && res.Value)
+        if (res == true)
         {
             SelectedFile = listBox.SelectedItem as string;
             return true;
         }
 
-        //if (res.HasValue && !res.Value) return false;
         return false;
     }
 

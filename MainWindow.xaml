@@ -40,31 +40,31 @@
             </Grid.ColumnDefinitions>
             <TabControl x:Name="tabControl" Margin="0,0,4,0">
                 <TabItem Header="ファイル一覧" Margin="0,0,0,0" Padding="12,4,12,4">
-                    <ListView x:Name="listViewFiles" VirtualizingStackPanel.VirtualizationMode="Standard">
+                    <ListView x:Name="listViewFiles" VirtualizingStackPanel.VirtualizationMode="Standard" GridViewColumnHeader.Click="gridViewColumnHeader_Click">
                         <ListView.View>
                             <GridView>
-                                <GridViewColumn Header="選択" Width="40">
+                                <GridViewColumn Header="選択" Width="44">
                                     <GridViewColumn.CellTemplate>
                                         <DataTemplate>
-                                            <CheckBox />
+                                            <CheckBox/>
                                         </DataTemplate>
                                     </GridViewColumn.CellTemplate>
                                 </GridViewColumn>
-                                <GridViewColumn Header="名前" Width="Auto">
+                                <GridViewColumn Header="名前" Width="Auto" local:ColumnExtensions.SortKey="Name">
                                     <GridViewColumn.CellTemplate>
                                         <DataTemplate>
-                                            <TextBlock Text="{Binding Name}"  Width="112" TextAlignment="Left" HorizontalAlignment="Stretch" />
+                                            <TextBlock Text="{Binding Name}"  Width="116" TextAlignment="Left" HorizontalAlignment="Stretch" />
                                         </DataTemplate>
                                     </GridViewColumn.CellTemplate>
                                 </GridViewColumn>
-                                <GridViewColumn Header="サイズ" Width="Auto">
+                                <GridViewColumn Header="サイズ" Width="Auto" local:ColumnExtensions.SortKey="Length">
                                     <GridViewColumn.CellTemplate>
                                         <DataTemplate>
-                                            <TextBlock Text="{Binding Length, StringFormat={}{0:N0}}"  Width="88" TextAlignment="Right" HorizontalAlignment="Stretch" />
+                                            <TextBlock Text="{Binding Length, StringFormat={}{0:N0}}"  Width="84" TextAlignment="Right" HorizontalAlignment="Stretch" />
                                         </DataTemplate>
                                     </GridViewColumn.CellTemplate>
                                 </GridViewColumn>
-                                <GridViewColumn x:Name="columnFileDate" Header="日付" Width="128" DisplayMemberBinding="{Binding WriteDateTime, StringFormat={}{0:yyyy-MM-dd HH:mm:ss}}"/>
+                                <GridViewColumn x:Name="columnFileDate" Header="日付" Width="128" DisplayMemberBinding="{Binding WriteDateTime, StringFormat={}{0:yyyy-MM-dd HH:mm:ss}}" local:ColumnExtensions.SortKey="WriteDateTime"/>
                             </GridView>
                         </ListView.View>
                     </ListView>

@@ -1,6 +1,8 @@
+using System.ComponentModel;
 using System.Diagnostics;
 using System.Windows;
 using System.Windows.Controls;
+using System.Windows.Data;
 using System.Windows.Media;
 using Microsoft.Win32;
 
@@ -31,7 +33,7 @@ public partial class MainWindow : Window
         updateListView(data);
     }
 
-    private async void mainWindow_Closing(object? sender, System.ComponentModel.CancelEventArgs e)
+    private async void mainWindow_Closing(object? sender, CancelEventArgs e)
     {
         Debug.WriteLine("Closing: closing window");
 
@@ -240,6 +242,8 @@ public partial class MainWindow : Window
             {
                 if (closing) return;
 
+                progWindow.IsCancelEnabled = false;
+
                 var canceled = rep.IsCanceled ? "キャンセルしました。\n" : "";
                 MessageBox.Show(this,
                     canceled + $"{rep.SuccessCount}個のファイルを抽出しました。"
@@ -278,7 +282,7 @@ public partial class MainWindow : Window
         {
             Debug.WriteLine($"startExtractAsync: disposing");
 
-            progWindow.Close();
+            progWindow.CloseProgress();
 
             cancellationTokenSource?.Dispose();
             cancellationTokenSource = null;
@@ -286,6 +290,7 @@ public partial class MainWindow : Window
             extractTask = null;
         }
     }
+
     ProgressWindow createProgress()
     {
         var progWindow = new ProgressWindow();
@@ -313,5 +318,85 @@ public partial class MainWindow : Window
     private void buttonClose_Click(object sender, RoutedEventArgs e)
     {
         Close();
+    }
+
+    private GridViewColumnHeader? lastHeaderClicked;
+    private ListSortDirection lastDirection = ListSortDirection.Ascending;
+
+    private void gridViewColumnHeader_Click(object sender, RoutedEventArgs e)
+    {
+        if (e.OriginalSource is not GridViewColumnHeader header) return;
+        if (header.Column == null) return;
+
+        // AttachedProperty からキーを取得
+        var sortKey = ColumnExtensions.GetSortKey(header.Column);
+        if (string.IsNullOrEmpty(sortKey)) return; // キー未設定なら無視
+
+        // 昇降切替
+        var direction = (lastHeaderClicked == header && lastDirection == ListSortDirection.Ascending)
+                        ? ListSortDirection.Descending
+                        : ListSortDirection.Ascending;
+
+        sortListView(sortKey, direction);
+        applySortArrow(header, direction);
+
+        lastHeaderClicked = header;
+        lastDirection = direction;
+    }
+
+    private void sortListView(string sortBy, ListSortDirection direction)
+    {
+        if (CollectionViewSource.GetDefaultView(listViewFiles.ItemsSource) is not ListCollectionView view)
+            return;
+
+        switch (sortBy)
+        {
+            case "Name":
+                view.CustomSort = new FileNameComparer(direction);
+                break;
+            case "Length":
+                view.CustomSort = new FileSizeComparer(direction);
+                break;
+            case "Date":
+                view.CustomSort = new FileDateComparer(direction);
+                break;
+            default:
+                break;
+        }
+        view.Refresh();
+    }
+
+    private void applySortArrow(GridViewColumnHeader header, ListSortDirection dir)
+    {
+        // 前のヘッダを元に戻す
+        if (lastHeaderClicked != null && lastHeaderClicked != header)
+        {
+            lastHeaderClicked.Content = lastHeaderClicked.Column.Header;
+        }
+
+        string baseText = header.Column.Header?.ToString() ?? "";
+        string arrow = dir == ListSortDirection.Ascending ? " △" : " ▽";
+        header.Content = baseText + arrow;
+    }
+}
+
+public static class ColumnExtensions
+{
+    public static readonly DependencyProperty SortKeyProperty =
+        DependencyProperty.RegisterAttached(
+            "SortKey",
+            typeof(string),
+            typeof(ColumnExtensions),
+            new PropertyMetadata(null)
+        );
+
+    public static void SetSortKey(DependencyObject element, string value)
+    {
+        element.SetValue(SortKeyProperty, value);
+    }
+
+    public static string GetSortKey(DependencyObject element)
+    {
+        return (string)element.GetValue(SortKeyProperty);
     }
 }

@@ -5,16 +5,20 @@
         xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
         xmlns:local="clr-namespace:DiskImageTool"
         mc:Ignorable="d"
-        Title="ArchiveImageSelectForm" Height="450" Width="400" WindowStartupLocation="CenterOwner">
-    <Grid>
+        Title="ArchiveImageSelectForm" Height="360" Width="320" WindowStartupLocation="CenterOwner">
+    <Grid Margin="8,8,8,8">
         <Grid.ColumnDefinitions>
             <ColumnDefinition Width="*" />
-            <ColumnDefinition Width="120" />
+            <ColumnDefinition Width="112" />
         </Grid.ColumnDefinitions>
-        <ListBox x:Name="listBox" d:ItemsSource="{d:SampleData ItemCount=5}"/>
-        <Grid Grid.Column="1">
-            <Button x:Name="button" Content="OK" HorizontalAlignment="Center" Margin="0,10,0,0" VerticalAlignment="Top" Width="100" Height="48" IsDefault="True" Click="button_Click"/>
-            <Button x:Name="button1" Content="キャンセル" HorizontalAlignment="Center" Margin="0,63,0,0" VerticalAlignment="Top" Width="100" Height="48" IsCancel="True" Click="button1_Click"/>
+        <ListBox x:Name="listBox" d:ItemsSource="{d:SampleData ItemCount=5}" Margin="0,0,4,0"/>
+        <Grid Grid.Column="1" Margin="4,4,0,4">
+            <Grid.RowDefinitions>
+                <RowDefinition Height="56"/>
+                <RowDefinition Height="56"/>
+            </Grid.RowDefinitions>
+            <Button x:Name="buttonOK" Content="OK" VerticalAlignment="Center" Height="48" IsDefault="True" Click="button_Click"/>
+            <Button x:Name="buttonCancel" Content="キャンセル" VerticalAlignment="Center" Height="48" IsCancel="True" Click="button1_Click" Grid.Row="1"/>
         </Grid>
 
     </Grid>

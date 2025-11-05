@@ -5,8 +5,8 @@
         xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
         xmlns:local="clr-namespace:DiskImageTool"
         mc:Ignorable="d"
-        Title="ProgressWindow" Height="220" Width="480" ResizeMode="NoResize" WindowStartupLocation="CenterOwner">
-    <Grid Margin="16,16,16,16">
+        Title="ProgressWindow" Height="200" Width="480" ResizeMode="NoResize" WindowStartupLocation="CenterOwner">
+    <Grid Margin="8,8,8,8">
         <Grid.RowDefinitions>
             <RowDefinition Height="3*"/>
             <RowDefinition Height="3*"/>
@@ -15,8 +15,8 @@
         </Grid.RowDefinitions>
         <Label x:Name="labelTitle" Content="Label" Width="Auto" Height="Auto" HorizontalContentAlignment="Center" VerticalContentAlignment="Center"/>
         <Label x:Name="labelMessage" Content="Label"  Grid.Row="1" Width="Auto" Height="Auto" HorizontalContentAlignment="Center" VerticalContentAlignment="Center"/>
-        <ProgressBar x:Name="progressBar"  Grid.Row="2" Width="Auto"  Height="24" VerticalContentAlignment="Center" HorizontalContentAlignment="Center"/>
-        <Button x:Name="buttonCancel" Content="キャンセル" Grid.Row="3" VerticalAlignment="Center" Width="120"  Height="36" Click="buttonCancel_Click"/>
+        <ProgressBar x:Name="progressBar"  Grid.Row="2" Width="Auto"  Height="22" VerticalContentAlignment="Center" HorizontalContentAlignment="Center"/>
+        <Button x:Name="buttonCancel" Content="キャンセル" Grid.Row="3" VerticalAlignment="Center" Width="120"  Height="32" Click="buttonCancel_Click"/>
 
     </Grid>
 </Window>

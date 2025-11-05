@@ -1,19 +1,5 @@
 namespace DiskImageTool;
 
-public enum SortOrder
-{
-    Unknown = 0,
-    Name = 1,
-    Size = 2,
-    Date = 3,
-}
-
-public enum SortDirection
-{
-    Ascending = 0,
-    Descending = 1,
-}
-
 /// <summary>
 /// Represents the progress of a file extraction operation.
 /// </summary>
