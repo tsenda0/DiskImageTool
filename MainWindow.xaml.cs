@@ -3,7 +3,6 @@ using System.Diagnostics;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Data;
-using System.Windows.Media;
 using Microsoft.Win32;
 
 namespace DiskImageTool;
@@ -15,10 +14,14 @@ public partial class MainWindow : Window
 {
     IFileSystem? fileSystem;
     IImageReader? imageReader;
-    IFileEntry? rootEntry;
+    List<CheckFileEntry> allFiles = [];
+
     CancellationTokenSource? cancellationTokenSource;
     Task<ExtractReport>? extractTask;
     bool closing;
+
+    private GridViewColumnHeader? lastHeaderClicked;
+    private ListSortDirection lastDirection = ListSortDirection.Ascending;
 
     public MainWindow()
     {
@@ -27,10 +30,10 @@ public partial class MainWindow : Window
         Closing += mainWindow_Closing;
         Closed += mainWindow_Closed;
         checkBoxIsUTC.Click += checkBoxIsUTC_Click;
-        IFileEntry[] data = [];
 
         updateFileName();
-        updateListView(data);
+        updateListView();
+        updateStatus();
     }
 
     private async void mainWindow_Closing(object? sender, CancelEventArgs e)
@@ -56,12 +59,32 @@ public partial class MainWindow : Window
         cancellationTokenSource = null;
     }
 
+    List<CheckFileEntry> createEntries(IFileEntry? rootEntry)
+    {
+        return rootEntry?.SubEntries != null
+            ? rootEntry.SubEntries.Select(i =>
+            {
+                var e = new CheckFileEntry(i);
+                e.PropertyChanged += e_PropertyChanged;
+                return e;
+            }).ToList()
+            : [];
+    }
+
+    private void e_PropertyChanged(object? sender, PropertyChangedEventArgs e)
+    {
+        updateStatus();
+    }
+
     private void checkBoxIsUTC_Click(object sender, RoutedEventArgs e)
     {
         if (fileSystem == null) return;
 
-        rootEntry = fileSystem.GetRoot(checkBoxIsUTC.IsChecked == true);
-        updateListView(rootEntry.SubEntries);
+        var rootEntry = fileSystem.GetRoot(checkBoxIsUTC.IsChecked == true);
+        allFiles = createEntries(rootEntry);
+
+        updateListView();
+        updateStatus();
     }
 
     async Task<ExtractReport?> cancelExtractTask()
@@ -127,10 +150,12 @@ public partial class MainWindow : Window
             {
                 FileSystemFactory factory = new FileSystemFactory();
                 fileSystem = factory.Create(imageReader, FileSystemType.FAT);
-                rootEntry = fileSystem.GetRoot(checkBoxIsUTC.IsChecked == true);
+                var rootEntry = fileSystem.GetRoot(checkBoxIsUTC.IsChecked == true);
+                allFiles = createEntries(rootEntry);
 
                 updateFileName(path);
-                updateListView(rootEntry.SubEntries);
+                updateListView();
+                updateStatus();
             }
         }
         catch (Exception ex)
@@ -147,16 +172,23 @@ public partial class MainWindow : Window
             : SystemColors.GrayTextBrush;
     }
 
-    void updateListView(IEnumerable<IFileEntry>? files)
+    void updateListView()
     {
-        listViewFiles.ItemsSource = files;
-        textBoxStatus.Text = $"{files?.Count():N0}個のファイル / {files?.Sum(f => f.Length):N0} bytes";
+        listViewFiles.ItemsSource = allFiles;
         propertyGrid.SelectedObject = fileSystem;
+    }
+
+    void updateStatus()
+    {
+        var checkedEntries = allFiles.Where(i => i.Checked);
+
+        textBoxStatus.Text = $"{allFiles.Count:N0}個のファイル({allFiles.Sum(f => f.BaseEntry.Length):N0} bytes)"
+            + $" / {checkedEntries.Count():N0}個のファイル({checkedEntries.Sum(f => f.BaseEntry.Length):N0} bytes)を選択中";
     }
 
     private async void extractAll_Click(object sender, RoutedEventArgs e)
     {
-        if (rootEntry?.SubEntries == null)
+        if (allFiles.Count == 0)
         {
             MessageBox.Show(this, "イメージにファイルがありません");
             return;
@@ -171,33 +203,18 @@ public partial class MainWindow : Window
         if (ofdResult != true) return;
         var destPath = ofd.FolderName;
 
-        await startExtractAsync(rootEntry.SubEntries, destPath);
+        await startExtractAsync(allFiles.Select(i => i.BaseEntry), destPath);
     }
 
     private async void extractChecked_Click(object sender, RoutedEventArgs e)
     {
-        if (rootEntry?.SubEntries == null)
+        if (allFiles == null)
         {
             MessageBox.Show(this, "イメージにファイルがありません");
             return;
         }
 
-        List<IFileEntry> checkFiles = [];
-        for (int i = 0; i < listViewFiles.Items.Count; i++)
-        {
-            if (listViewFiles.ItemContainerGenerator.ContainerFromIndex(i) is not ListViewItem item) continue;
-
-            var cb = FindVisualChildren<CheckBox>(item).FirstOrDefault();
-            if (cb != null && listViewFiles.Items[i] is IFileEntry entry)
-            {
-                if (cb.IsChecked == true)
-                {
-                    checkFiles.Add(entry);
-                }
-            }
-        }
-
-        if (checkFiles.Count == 0)
+        if (!allFiles.Any(i => i.Checked))
         {
             MessageBox.Show(this, "ファイルが選択されていません");
             return;
@@ -212,7 +229,7 @@ public partial class MainWindow : Window
         if (ofdResult != true) return;
         var destPath = ofd.FolderName;
 
-        await startExtractAsync(checkFiles, destPath);
+        await startExtractAsync(allFiles.Where(i => i.Checked).Select(i => i.BaseEntry), destPath);
     }
 
     private async Task startExtractAsync(IEnumerable<IFileEntry> files, string destPath)
@@ -224,8 +241,7 @@ public partial class MainWindow : Window
         }
 
         using FileExtractorService svc = new FileExtractorService();
-        var progWindow = createProgress();
-        progWindow.Owner = this;
+        var progWindow = createProgress(this);
         var progress = progWindow.GetReporter();
         progress.Report(null);
         progWindow.Show();
@@ -291,28 +307,15 @@ public partial class MainWindow : Window
         }
     }
 
-    ProgressWindow createProgress()
+    ProgressWindow createProgress(Window? owner)
     {
-        var progWindow = new ProgressWindow();
-
+        var progWindow = new ProgressWindow
+        {
+            Owner = owner
+        };
         progWindow.Canceled += (s, e) => cancellationTokenSource?.Cancel();
 
         return progWindow;
-    }
-
-    public static IEnumerable<T> FindVisualChildren<T>(DependencyObject root) where T : DependencyObject
-    {
-        if (root == null) yield break;
-
-        for (int i = 0; i < VisualTreeHelper.GetChildrenCount(root); i++)
-        {
-            var child = VisualTreeHelper.GetChild(root, i);
-            if (child is T match)
-                yield return match;
-
-            foreach (var descendant in FindVisualChildren<T>(child))
-                yield return descendant;
-        }
     }
 
     private void buttonClose_Click(object sender, RoutedEventArgs e)
@@ -320,13 +323,9 @@ public partial class MainWindow : Window
         Close();
     }
 
-    private GridViewColumnHeader? lastHeaderClicked;
-    private ListSortDirection lastDirection = ListSortDirection.Ascending;
-
     private void gridViewColumnHeader_Click(object sender, RoutedEventArgs e)
     {
         if (e.OriginalSource is not GridViewColumnHeader header) return;
-        if (header.Column == null) return;
 
         // AttachedProperty からキーを取得
         var sortKey = ColumnExtensions.GetSortKey(header.Column);
@@ -351,14 +350,17 @@ public partial class MainWindow : Window
 
         switch (sortBy)
         {
+            case "Checked":
+                view.CustomSort = new CheckedComparer(direction);
+                break;
             case "Name":
                 view.CustomSort = new FileNameComparer(direction);
                 break;
             case "Length":
-                view.CustomSort = new FileSizeComparer(direction);
+                view.CustomSort = new FileLengthComparer(direction);
                 break;
-            case "Date":
-                view.CustomSort = new FileDateComparer(direction);
+            case "WriteDateTime":
+                view.CustomSort = new WriteDateTimeComparer(direction);
                 break;
             default:
                 break;
@@ -377,6 +379,22 @@ public partial class MainWindow : Window
         string baseText = header.Column.Header?.ToString() ?? "";
         string arrow = dir == ListSortDirection.Ascending ? " △" : " ▽";
         header.Content = baseText + arrow;
+    }
+
+    private void menuSelectAll_Click(object sender, RoutedEventArgs e)
+    {
+        for (var i = 0; i < allFiles.Count; i++)
+        {
+            allFiles[i].Checked = true;
+        }
+    }
+
+    private void menuUnselectAll_Click(object sender, RoutedEventArgs e)
+    {
+        for (var i = 0; i < allFiles.Count; i++)
+        {
+            allFiles[i].Checked = false;
+        }
     }
 }
 
